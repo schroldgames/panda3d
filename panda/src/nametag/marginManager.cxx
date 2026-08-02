@@ -14,6 +14,7 @@
 #include "indent.h"
 
 #include <algorithm>
+#include <random>
 
 TypeHandle MarginManager::_type_handle;
 
@@ -482,7 +483,8 @@ show_visible_no_conflict() {
   }
 
   // Randomize the list, so we'll pull the cells out in random order.
-  random_shuffle(empty_cells.begin(), empty_cells.end());
+  static std::mt19937 rng(std::random_device{}());
+  std::shuffle(empty_cells.begin(), empty_cells.end(), rng);
 
   // Now find a home for each popup that needs one.
   Popups::iterator pi;
@@ -552,7 +554,8 @@ show_visible_resolve_conflict() {
   }
 
   // Randomize the list, so we'll pull the cells out in random order.
-  random_shuffle(empty_cells.begin(), empty_cells.end());
+  static std::mt19937 rng(std::random_device{}());
+  std::shuffle(empty_cells.begin(), empty_cells.end(), rng);
 
 
   // And place all the cells from the head of the wants-visible list.
