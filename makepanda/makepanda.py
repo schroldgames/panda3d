@@ -102,6 +102,8 @@ PkgListSet(["PYTHON", "DIRECT",                        # Python support
   "CONTRIB",                                           # Experimental
   "SSE2", "NEON",                                      # Compiler features
   "MIMALLOC",                                          # Memory allocators
+  "NAMETAG", "MOVEMENT", "NAVIGATION",                 # libotp
+  "DNA", "SUIT", "PETS",                               # libtoontown
 ])
 
 CheckPandaSourceTree()
@@ -156,7 +158,7 @@ def usage(problem):
     print("  --everything      (enable every third-party lib)")
     print("  --directx-sdk=X   (specify version of DirectX SDK to use: jun2010, aug2009)")
     print("  --windows-sdk=X   (specify Windows SDK version, eg. 7.1, 8.1, 10 or 11.  Default is 8.1)")
-    print("  --msvc-version=X  (specify Visual C++ version, eg. 14.1, 14.2, 14.3, 14.5.  Default is 14.1)")
+    print("  --msvc-version=X  (specify Visual C++ version, eg. 14.1, 14.2, 14.3.  Default is 14.1)")
     print("  --use-icl         (experimental setting to use an intel compiler instead of MSVC on Windows)")
     print("")
     print("The simplest way to compile panda is to just type:")
@@ -309,7 +311,7 @@ def parseopts(args):
 
     if GetTarget() == 'windows':
         if not MSVC_VERSION:
-            print("No MSVC version specified. Defaulting to 14.3 (Visual Studio 2022).")
+            print("No MSVC version specified. Defaulting to 14.1 (Visual Studio 2017).")
             MSVC_VERSION = (14, 3)
         else:
             try:
@@ -358,7 +360,7 @@ if GetHost() == "darwin":
     if tuple(OSX_ARCHS) == ('arm64',):
         os.environ["MACOSX_DEPLOYMENT_TARGET"] = "11.0"
     else:
-        os.environ["MACOSX_DEPLOYMENT_TARGET"] = "10.13"
+        os.environ["MACOSX_DEPLOYMENT_TARGET"] = "10.9"
 
 ########################################################################
 ##
@@ -395,8 +397,6 @@ target_arch = GetTargetArch()
 if target == 'windows':
     if target_arch == 'x64':
         PLATFORM = 'win-amd64'
-    elif target_arch == 'arm64':
-        PLATFORM = 'win-arm64'
     else:
         PLATFORM = 'win32'
 
@@ -423,8 +423,10 @@ elif target == 'darwin':
 
     if arch_tag == 'arm64':
         PLATFORM = 'macosx-11.0-' + arch_tag
-    else:
+    elif sys.version_info >= (3, 13):
         PLATFORM = 'macosx-10.13-' + arch_tag
+    else:
+        PLATFORM = 'macosx-10.9-' + arch_tag
 
 elif target == 'linux' and (os.path.isfile("/lib/libc-2.5.so") or os.path.isfile("/lib64/libc-2.5.so")) and os.path.isdir("/opt/python"):
     # This is manylinux1.  A bit of a sloppy check, though.
@@ -511,6 +513,9 @@ if WHEEL and PkgSkip("PYTHON"):
 
 if not os.path.isdir("contrib"):
     PkgDisable("CONTRIB")
+
+# TEMP: Disable libp3navigation until we need it.
+PkgDisable("NAVIGATION")
 
 ########################################################################
 ##
@@ -746,7 +751,6 @@ if (COMPILER == "MSVC"):
         if not os.path.isfile(GetThirdpartyDir() + "openal/bin/OpenAL32.dll"):
             # Link OpenAL Soft statically.
             DefSymbol("OPENAL", "AL_LIBTYPE_STATIC")
-            LibName("OPENAL", "avrt.lib")
     if (PkgSkip("ODE")==0):
         LibName("ODE",      GetThirdpartyDir() + "ode/lib/ode_single.lib")
         DefSymbol("ODE",    "dSINGLE", "")
@@ -817,7 +821,7 @@ if (COMPILER=="GCC"):
              not os.path.isfile(SDK.get("MACOSX", "") + '/usr/lib/libstdc++.6.0.9.dylib'):
             # Also, we can't target FMOD Ex on 10.14 and above
             if not PkgSkip("FMODEX"):
-                Warn("thirdparty package fmodex requires macOS 10.13 SDK, excluding from build")
+                Warn("thirdparty package fmodex requires one of MacOSX 10.9-10.13 SDK, excluding from build")
             PkgDisable("FMODEX")
 
     #if not PkgSkip("PYTHON"):
@@ -1020,18 +1024,7 @@ if (COMPILER=="GCC"):
 
     if not PkgSkip("PYTHON"):
         python_lib = SDK["PYTHONVERSION"]
-
-        # --python-incdir traditionally points at the parent of the versioned
-        # include directory, but changed to prefer pointing to the directory
-        # containing Python.h.  Support both transitionally.
-        for opt, incdir in INCDIRECTORIES:
-            if opt == "PYTHON" and os.path.isfile(os.path.join(incdir, "Python.h")):
-                python_incs = ("Python.h",)
-                break
-        else:
-            python_incs = (SDK["PYTHONVERSION"], SDK["PYTHONVERSION"] + "/Python.h")
-
-        SmartPkgEnable("PYTHON", "", python_lib, python_incs)
+        SmartPkgEnable("PYTHON", "", python_lib, (SDK["PYTHONVERSION"], SDK["PYTHONVERSION"] + "/Python.h"))
 
         if not PkgSkip("PYTHON") and GetTarget() == "emscripten":
             # Python may have been compiled with these requirements.
@@ -1080,7 +1073,6 @@ if (COMPILER=="GCC"):
             LibDirectory("ALWAYS", "/usr/X11R6/lib")
 
     if GetTarget() == 'darwin':
-        PkgDisable("X11")
         LibName("ALWAYS", "-framework AppKit")
         LibName("IOKIT", "-framework IOKit")
         LibName("QUARTZ", "-framework Quartz")
@@ -1105,9 +1097,6 @@ if (COMPILER=="GCC"):
         LibName("ANDROID", '-landroid')
         LibName("JNIGRAPHICS", '-ljnigraphics')
         LibName("OPENSLES", '-lOpenSLES')
-
-    if GetTarget() == 'freebsd':
-        LibName("EXECINFO", "-lexecinfo")
 
 DefSymbol("WITHINPANDA", "WITHIN_PANDA", "1")
 if GetLinkAllStatic() or GetTarget() == 'emscripten':
@@ -1211,7 +1200,7 @@ def CompileCxx(obj,src,opts):
             # Set the minimum version to Windows Vista.
             cmd += "/DWINVER=0x600 "
 
-            cmd += "/Fo" + obj + " /nologo /c /std:c++17"
+            cmd += "/Fo" + obj + " /nologo /c"
             if GetTargetArch() == 'x86':
                 # x86 (32 bit) MSVC 2015+ defaults to /arch:SSE2
                 if not PkgSkip("SSE2") or 'SSE2' in opts:   # x86 with SSE2
@@ -1238,7 +1227,7 @@ def CompileCxx(obj,src,opts):
             if (building):
                 cmd += " /DBUILDING_" + building
 
-            if ("BIGOBJ" in opts) or GetTargetArch() in ('x64', 'arm64') or not PkgSkip("EIGEN"):
+            if ("BIGOBJ" in opts) or GetTargetArch() == 'x64' or not PkgSkip("EIGEN"):
                 cmd += " /bigobj"
 
             cmd += " /Zm300"
@@ -1337,7 +1326,7 @@ def CompileCxx(obj,src,opts):
 
     if (COMPILER=="GCC"):
         if (src.endswith(".c")): cmd = GetCC() +' -fPIC -c -o ' + obj
-        else:                    cmd = GetCXX()+' -std=gnu++17 -ftemplate-depth-70 -fPIC -c -o ' + obj
+        else:                    cmd = GetCXX()+' -std=gnu++14 -ftemplate-depth-70 -fPIC -c -o ' + obj
         for (opt, dir) in INCDIRECTORIES:
             if (opt=="ALWAYS") or (opt in opts): cmd += ' -I' + BracketNameWithQuotes(dir)
         for (opt, dir) in FRAMEWORKDIRECTORIES:
@@ -1360,7 +1349,7 @@ def CompileCxx(obj,src,opts):
             if tuple(OSX_ARCHS) == ('arm64',):
                 cmd += " -mmacosx-version-min=11.0"
             else:
-                cmd += " -mmacosx-version-min=10.13"
+                cmd += " -mmacosx-version-min=10.9"
 
             # Use libc++ to enable C++11 features.
             cmd += " -stdlib=libc++"
@@ -1403,12 +1392,6 @@ def CompileCxx(obj,src,opts):
                 cmd += ' -march=x86-64 -msse4.2 -mpopcnt'
 
             cmd += " -Wa,--noexecstack"
-
-            # Silence the flood of -Wdeprecated-declarations warnings from
-            # Eigen's use of std::result_of (deprecated in C++17) under the
-            # NDK's libc++.  These are third-party headers we don't control.
-            if not PkgSkip("EIGEN"):
-                cmd += " -Wno-deprecated-declarations"
 
             # Do we want thumb or arm instructions?
             if arch != 'arm64' and arch.startswith('arm'):
@@ -1905,8 +1888,10 @@ def CompileLink(dll, obj, opts):
 
             if tuple(OSX_ARCHS) == ('arm64',):
                 cmd += " -mmacosx-version-min=11.0"
-            else:
+            elif sys.version_info >= (3, 13) and 'PYTHON' in opts:
                 cmd += " -mmacosx-version-min=10.13"
+            else:
+                cmd += " -mmacosx-version-min=10.9"
 
             # Use libc++ to enable C++11 features.
             cmd += " -stdlib=libc++"
@@ -2340,7 +2325,7 @@ def CompileAnything(target, inputs, opts, progress = None):
         ProgressOutput(progress, "Building Java class", target)
         return CompileJava(target, infile, opts)
     elif origsuffix == ".obj":
-        if infile.endswith(".cxx") or infile.endswith(".cpp"):
+        if (infile.endswith(".cxx")):
             ProgressOutput(progress, "Building C++ object", target)
             return CompileCxx(target, infile, opts)
         elif infile.endswith(".c"):
@@ -2415,6 +2400,7 @@ DTOOL_CONFIG=[
     ("PHAVE_GETOPT_H",                 'UNDEF',                  '1'),
     ("PHAVE_LINUX_INPUT_H",            'UNDEF',                  '1'),
     ("IOCTL_TERMINAL_WIDTH",           'UNDEF',                  '1'),
+    ("HAVE_IOS_TYPEDEFS",              '1',                      '1'),
     ("HAVE_IOS_BINARY",                '1',                      '1'),
     ("STATIC_INIT_GETENV",             '1',                      'UNDEF'),
     ("HAVE_PROC_SELF_EXE",             'UNDEF',                  '1'),
@@ -2429,12 +2415,16 @@ DTOOL_CONFIG=[
     ("GLOBAL_ARGV",                    '__argv',                 'UNDEF'),
     ("GLOBAL_ARGC",                    '__argc',                 'UNDEF'),
     ("PHAVE_IO_H",                     '1',                      'UNDEF'),
+    ("PHAVE_IOSTREAM",                 '1',                      '1'),
     ("PHAVE_STRING_H",                 'UNDEF',                  '1'),
     ("PHAVE_LIMITS_H",                 'UNDEF',                  '1'),
+    ("PHAVE_STDLIB_H",                 'UNDEF',                  '1'),
     ("PHAVE_MALLOC_H",                 '1',                      '1'),
     ("PHAVE_SYS_MALLOC_H",             'UNDEF',                  'UNDEF'),
     ("PHAVE_ALLOCA_H",                 'UNDEF',                  '1'),
     ("PHAVE_LOCALE_H",                 'UNDEF',                  '1'),
+    ("PHAVE_SSTREAM",                  '1',                      '1'),
+    ("PHAVE_NEW",                      '1',                      '1'),
     ("PHAVE_SYS_TYPES_H",              '1',                      '1'),
     ("PHAVE_SYS_TIME_H",               'UNDEF',                  '1'),
     ("PHAVE_UNISTD_H",                 'UNDEF',                  '1'),
@@ -2442,6 +2432,7 @@ DTOOL_CONFIG=[
     ("PHAVE_GLOB_H",                   'UNDEF',                  '1'),
     ("PHAVE_DIRENT_H",                 'UNDEF',                  '1'),
     ("PHAVE_UCONTEXT_H",               'UNDEF',                  '1'),
+    ("PHAVE_STDINT_H",                 '1',                      '1'),
     ("PHAVE_EXECINFO_H",               'UNDEF',                  '1'),
     ("HAVE_RTTI",                      '1',                      '1'),
     ("HAVE_X11",                       'UNDEF',                  '1'),
@@ -2911,6 +2902,10 @@ if not PkgSkip("ODE"):
     panda_modules.append('ode')
 if not PkgSkip("VRPN"):
     panda_modules.append('vrpn')
+if not PkgSkip("NAMETAG") or not PkgSkip("MOVEMENT") or not PkgSkip("NAVIGATION"):
+    panda_modules.append('otp')
+if not PkgSkip("DNA") or not PkgSkip("SUIT") or not PkgSkip("PETS"):
+    panda_modules.append('toontown')
 
 panda_modules_code = """
 "This module is deprecated.  Import from panda3d.core and other panda3d.* modules instead."
@@ -3223,11 +3218,6 @@ if tp_dir is not None:
                     CopyFile(GetOutputDir() + "/python/ppythonw.exe", SDK["PYTHON"] + "/pythonw.exe")
                 ConditionalWriteFile(GetOutputDir() + "/python/panda.pth", "..\n../bin\n")
 
-                # Tells run_pytest.exe where to find the Python standard
-                # library relative to its own location.
-                ConditionalWriteFile(GetOutputDir() + "/bin/run_pytest._pth",
-                    "../python/Lib\n../python/DLLs\n../python/Lib/site-packages\n..\n.\n")
-
 # Copy over the MSVC runtime.
 if GetTarget() == 'windows' and "VISUALSTUDIO" in SDK:
     vcver = "%s%s" % (SDK["MSVC_VERSION"][0], 0)        # ignore minor version.
@@ -3397,6 +3387,24 @@ if not PkgSkip("DIRECT"):
     CopyAllHeaders('direct/src/motiontrail')
     CopyAllHeaders('direct/src/dcparse')
 
+if not PkgSkip("NAMETAG") or not PkgSkip("MOVEMENT") or not PkgSkip("NAVIGATION"):
+    CopyAllHeaders('panda/src/otpbase')
+    if not PkgSkip("NAMETAG"):
+        CopyAllHeaders('panda/src/nametag')
+    if not PkgSkip("MOVEMENT"):
+        CopyAllHeaders('panda/src/movement')
+    if not PkgSkip("NAVIGATION"):
+        CopyAllHeaders('panda/src/navigation')
+
+if not PkgSkip("DNA") or not PkgSkip("SUIT") or not PkgSkip("PETS"):
+    CopyAllHeaders('panda/src/toontownbase')
+    if not PkgSkip("DNA"):
+        CopyAllHeaders('panda/src/dna')
+    if not PkgSkip("SUIT"):
+        CopyAllHeaders('panda/src/suit')
+    if not PkgSkip("PETS"):
+        CopyAllHeaders('panda/src/pets')
+
 if not PkgSkip("PANDATOOL"):
     CopyAllHeaders('pandatool/src/pandatoolbase')
     CopyAllHeaders('pandatool/src/converter')
@@ -3437,6 +3445,8 @@ if not PkgSkip("PANDATOOL"):
     CopyAllHeaders('pandatool/src/vrmlprogs')
     CopyAllHeaders('pandatool/src/win-stats')
     CopyAllHeaders('pandatool/src/xfileprogs')
+    if not PkgSkip("DNA"):
+        CopyAllHeaders('pandatool/src/dnaprogs')
 
 if not PkgSkip("CONTRIB"):
     CopyAllHeaders('contrib/src/contribbase')
@@ -3541,7 +3551,7 @@ TargetAdd('libp3dtoolconfig.dll', input='p3dtoolconfig_dtoolconfig.obj')
 TargetAdd('libp3dtoolconfig.dll', input='p3prc_composite1.obj')
 TargetAdd('libp3dtoolconfig.dll', input='p3prc_composite2.obj')
 TargetAdd('libp3dtoolconfig.dll', input='libp3dtool.dll')
-TargetAdd('libp3dtoolconfig.dll', opts=['ADVAPI', 'OPENSSL', 'WINGDI', 'WINUSER', 'EXECINFO'])
+TargetAdd('libp3dtoolconfig.dll', opts=['ADVAPI', 'OPENSSL', 'WINGDI', 'WINUSER'])
 
 #
 # DIRECTORY: dtool/src/prckeys/
@@ -5245,6 +5255,166 @@ if not PkgSkip("DIRECT"):
     TargetAdd('p3dcparse.exe', opts=['ADVAPI'])
 
 #
+# DIRECTORY: panda/src/nametag/
+#
+if not PkgSkip("NAMETAG"):
+    OPTS=['DIR:panda/src/nametag', 'BUILDING:OTP']
+    TargetAdd('p3nametag_composite1.obj', opts=OPTS, input='nametag_composite1.cxx')
+    TargetAdd('p3nametag_composite2.obj', opts=OPTS, input='nametag_composite2.cxx')
+
+    OPTS=['DIR:panda/src/nametag']
+    IGATEFILES=GetDirectoryContents('panda/src/nametag', ["*.h", "*_composite*.cxx"])
+    TargetAdd('libp3nametag.in', opts=OPTS, input=IGATEFILES)
+    TargetAdd('libp3nametag.in', opts=['IMOD:panda3d.otp', 'ILIB:libp3nametag', 'SRCDIR:panda/src/nametag'])
+
+#
+# DIRECTORY: panda/src/movement/
+#
+if not PkgSkip("MOVEMENT"):
+    OPTS=['DIR:panda/src/movement', 'BUILDING:OTP']
+    TargetAdd('p3movement_composite1.obj', opts=OPTS, input='movement_composite1.cxx')
+
+    OPTS=['DIR:panda/src/movement']
+    IGATEFILES=GetDirectoryContents('panda/src/movement', ["*.h", "*_composite*.cxx"])
+    TargetAdd('libp3movement.in', opts=OPTS, input=IGATEFILES)
+    TargetAdd('libp3movement.in', opts=['IMOD:panda3d.otp', 'ILIB:libp3movement', 'SRCDIR:panda/src/movement'])
+
+#
+# DIRECTORY: panda/src/navigation/
+#
+if not PkgSkip("NAVIGATION"):
+    OPTS=['DIR:panda/src/navigation', 'BUILDING:OTP']
+    PyTargetAdd('p3navigation_composite1.obj', opts=OPTS, input='navigation_composite1.cxx')
+
+    OPTS=['DIR:panda/src/navigation']
+    IGATEFILES=GetDirectoryContents('panda/src/navigation', ["*.h", "*_composite*.cxx"])
+    TargetAdd('libp3navigation.in', opts=OPTS, input=IGATEFILES)
+    TargetAdd('libp3navigation.in', opts=['IMOD:panda3d.otp', 'ILIB:libp3navigation', 'SRCDIR:panda/src/navigation'])
+
+#
+# DIRECTORY: panda/src/nametag/
+# DIRECTORY: panda/src/movement/
+# DIRECTORY: panda/src/navigation/
+#
+if not PkgSkip("NAMETAG") or not PkgSkip("MOVEMENT") or not PkgSkip("NAVIGATION"):
+    if not PkgSkip("NAMETAG"):
+        TargetAdd('libp3otp.dll', input='p3nametag_composite1.obj')
+        TargetAdd('libp3otp.dll', input='p3nametag_composite2.obj')
+        TargetAdd('libp3otp.dll', input='libp3direct.dll')
+    if not PkgSkip("MOVEMENT"):
+        TargetAdd('libp3otp.dll', input='p3movement_composite1.obj')
+    if not PkgSkip("NAVIGATION"):
+        PyTargetAdd('libp3otp.dll', input='p3navigation_composite1.obj')
+    TargetAdd('libp3otp.dll', input=COMMON_PANDA_LIBS)
+
+    if not PkgSkip("NAMETAG"):
+        PyTargetAdd('otp_module.obj', input='libp3nametag.in')
+    if not PkgSkip("MOVEMENT"):
+        PyTargetAdd('otp_module.obj', input='libp3movement.in')
+    if not PkgSkip("NAVIGATION"):
+        PyTargetAdd('otp_module.obj', input='libp3navigation.in')
+    PyTargetAdd('otp_module.obj', opts=['IMOD:panda3d.otp', 'ILIB:otp', 'IMPORT:panda3d.core'])
+
+    PyTargetAdd('otp.pyd', input='otp_module.obj')
+    if not PkgSkip("NAMETAG"):
+        PyTargetAdd('otp.pyd', input='libp3nametag_igate.obj')
+    if not PkgSkip("MOVEMENT"):
+        PyTargetAdd('otp.pyd', input='libp3movement_igate.obj')
+    if not PkgSkip("NAVIGATION"):
+        PyTargetAdd('otp.pyd', input='libp3navigation_igate.obj')
+    PyTargetAdd('otp.pyd', input='libp3otp.dll')
+    PyTargetAdd('otp.pyd', input=COMMON_PANDA_LIBS)
+
+#
+# DIRECTORY: panda/src/dna/
+#
+if not PkgSkip("DNA"):
+    OPTS=['DIR:panda/src/dna', 'BUILDING:TOONTOWN']
+    TargetAdd('p3dna_composite1.obj', opts=OPTS, input='dnaLoader_composite1.cxx')
+    TargetAdd('p3dna_composite2.obj', opts=OPTS, input='dnaLoader_composite2.cxx')
+
+    OPTS=['DIR:panda/src/dna', 'BUILDING:TOONTOWN', 'BISONPREFIX_dnayy', 'FLEXDASHI']
+    CreateFile(GetOutputDir()+"/include/dnaParser.h")
+    TargetAdd('p3dna_dnaParser.obj', opts=OPTS, input='dnaParser.yxx')
+    TargetAdd('dnaParser.h', input='p3dna_dnaParser.obj', opts=['DEPENDENCYONLY'])
+    TargetAdd('p3dna_dnaLexer.obj', opts=OPTS, input='dnaLexer.lxx')
+
+    OPTS=['DIR:panda/src/dna']
+    IGATEFILES=GetDirectoryContents('panda/src/dna', ["*.h", "*_composite*.cxx"])
+    if "dnaParser.h" in IGATEFILES: IGATEFILES.remove("dnaParser.h")
+    TargetAdd('libp3dna.in', opts=OPTS, input=IGATEFILES)
+    TargetAdd('libp3dna.in', opts=['IMOD:panda3d.toontown', 'ILIB:libp3dna', 'SRCDIR:panda/src/dna'])
+
+#
+# DIRECTORY: panda/src/suit/
+#
+if not PkgSkip("SUIT"):
+    if PkgSkip("DNA"):
+        exit("libp3suit depends on libp3dna.")
+
+    OPTS=['DIR:panda/src/suit', 'BUILDING:TOONTOWN']
+    TargetAdd('p3suit_composite1.obj', opts=OPTS, input='suit_composite1.cxx')
+
+    OPTS=['DIR:panda/src/suit']
+    IGATEFILES=GetDirectoryContents('panda/src/suit', ["*.h", "*_composite*.cxx"])
+    TargetAdd('libp3suit.in', opts=OPTS, input=IGATEFILES)
+    TargetAdd('libp3suit.in', opts=['IMOD:panda3d.toontown', 'ILIB:libp3suit', 'SRCDIR:panda/src/suit'])
+
+#
+# DIRECTORY: panda/src/pets/
+#
+if not PkgSkip("PETS"):
+    if PkgSkip("MOVEMENT"):
+        exit("libp3pets depends on libp3movement.")
+
+    OPTS=['DIR:panda/src/pets', 'BUILDING:TOONTOWN']
+    TargetAdd('p3pets_composite1.obj', opts=OPTS, input='pets_composite1.cxx')
+
+    OPTS=['DIR:panda/src/pets']
+    IGATEFILES=GetDirectoryContents('panda/src/pets', ["*.h", "*_composite*.cxx"])
+    TargetAdd('libp3pets.in', opts=OPTS, input=IGATEFILES)
+    TargetAdd('libp3pets.in', opts=['IMOD:panda3d.toontown', 'ILIB:libp3pets', 'SRCDIR:panda/src/pets'])
+
+#
+# DIRECTORY: panda/src/dna/
+# DIRECTORY: panda/src/suit/
+# DIRECTORY: panda/src/pets/
+#
+if not PkgSkip("DNA") or not PkgSkip("SUIT") or not PkgSkip("PETS"):
+    if not PkgSkip("DNA"):
+        TargetAdd('libp3toontown.dll', input='p3dna_composite1.obj')
+        TargetAdd('libp3toontown.dll', input='p3dna_composite2.obj')
+        TargetAdd('libp3toontown.dll', input='p3dna_dnaParser.obj')
+        TargetAdd('libp3toontown.dll', input='p3dna_dnaLexer.obj')
+        if not PkgSkip("SUIT"):
+            TargetAdd('libp3toontown.dll', input='p3suit_composite1.obj')
+    if not PkgSkip("PETS"):
+        TargetAdd('libp3toontown.dll', input='p3pets_composite1.obj')
+        TargetAdd('libp3toontown.dll', input='libp3otp.dll')
+    TargetAdd('libp3toontown.dll', input=COMMON_PANDA_LIBS)
+
+    if not PkgSkip("DNA"):
+        PyTargetAdd('toontown_module.obj', input='libp3dna.in')
+        if not PkgSkip("SUIT"):
+            PyTargetAdd('toontown_module.obj', input='libp3suit.in')
+    if not PkgSkip("PETS"):
+        PyTargetAdd('toontown_module.obj', input='libp3pets.in')
+        PyTargetAdd('toontown_module.obj', opts=['IMOD:panda3d.toontown', 'ILIB:toontown', 'IMPORT:panda3d.otp'])
+    else:
+        PyTargetAdd('toontown_module.obj', opts=['IMOD:panda3d.toontown', 'ILIB:toontown', 'IMPORT:panda3d.core'])
+
+    PyTargetAdd('toontown.pyd', input='toontown_module.obj')
+    if not PkgSkip("DNA"):
+        PyTargetAdd('toontown.pyd', input='libp3dna_igate.obj')
+        if not PkgSkip("SUIT"):
+            PyTargetAdd('toontown.pyd', input='libp3suit_igate.obj')
+    if not PkgSkip("PETS"):
+        PyTargetAdd('toontown.pyd', input='libp3pets_igate.obj')
+    PyTargetAdd('toontown.pyd', input='libp3otp.dll')
+    PyTargetAdd('toontown.pyd', input='libp3toontown.dll')
+    PyTargetAdd('toontown.pyd', input=COMMON_PANDA_LIBS)
+
+#
 # DIRECTORY: pandatool/src/pandatoolbase/
 #
 
@@ -5920,6 +6090,18 @@ if not PkgSkip("PANDATOOL"):
         TargetAdd('x2egg.exe', opts=['ADVAPI'])
 
 #
+# DIRECTORY: pandatool/src/dnaprogs/
+#
+
+if not PkgSkip("PANDATOOL") and not PkgSkip("DNA"):
+  OPTS=['DIR:pandatool/src/dnaprogs']
+  TargetAdd('dna-trans_dnaTrans.obj', opts=OPTS, input='dnaTrans.cxx')
+  TargetAdd('dna-trans.exe', input='dna-trans_dnaTrans.obj')
+  TargetAdd('dna-trans.exe', input=COMMON_PANDA_LIBS)
+  TargetAdd('dna-trans.exe', input='libp3toontown.dll')
+  TargetAdd('dna-trans.exe', opts=['ADVAPI'])
+
+#
 # DIRECTORY: contrib/src/ai/
 #
 if not PkgSkip("CONTRIB"):
@@ -6013,7 +6195,7 @@ if PkgSkip("PYTHON") == 0:
 #
 # Build the test runner for static builds
 #
-if True:
+if GetLinkAllStatic() or GetTarget() == 'android':
     if GetTarget() == 'emscripten':
         LinkFlag('RUN_TESTS_FLAGS', '-s NODERAWFS')
         LinkFlag('RUN_TESTS_FLAGS', '-s ASSERTIONS=2')
@@ -6032,43 +6214,20 @@ if True:
         DefSymbol('RUN_TESTS_FLAGS', 'HAVE_BULLET')
 
     OPTS=['DIR:tests', 'PYTHON', 'RUN_TESTS_FLAGS', 'SUBSYSTEM:CONSOLE']
-    PyTargetAdd('run_pytest-main.obj', opts=OPTS, input='main.c')
-    PyTargetAdd('run_pytest.exe', input='run_pytest-main.obj')
+    PyTargetAdd('run_tests-main.obj', opts=OPTS, input='main.c')
+    PyTargetAdd('run_tests.exe', input='run_tests-main.obj')
     if GetLinkAllStatic():
-        PyTargetAdd('run_pytest.exe', input='core.pyd')
+        PyTargetAdd('run_tests.exe', input='core.pyd')
         if not PkgSkip('DIRECT'):
-            PyTargetAdd('run_pytest.exe', input='direct.pyd')
+            PyTargetAdd('run_tests.exe', input='direct.pyd')
         if not PkgSkip('PANDAPHYSICS'):
-            PyTargetAdd('run_pytest.exe', input='physics.pyd')
+            PyTargetAdd('run_tests.exe', input='physics.pyd')
         if not PkgSkip('EGG'):
-            PyTargetAdd('run_pytest.exe', input='egg.pyd')
+            PyTargetAdd('run_tests.exe', input='egg.pyd')
         if not PkgSkip('BULLET'):
-            PyTargetAdd('run_pytest.exe', input='bullet.pyd')
-    PyTargetAdd('run_pytest.exe', input=COMMON_PANDA_LIBS)
-    PyTargetAdd('run_pytest.exe', opts=['PYTHON', 'BULLET', 'RUN_TESTS_FLAGS'])
-
-#
-# Build the C++ test suite.  Tests are discovered automatically: any
-# tests/<package>/test_*.cxx file is compiled into the run_cxx_tests binary.
-#
-
-OPTS=['DIR:tests/catch2']
-TargetAdd('run_cxx_tests_catch_amalgamated.obj', opts=OPTS, input='catch_amalgamated.cpp')
-
-cxx_test_objs = ['run_cxx_tests_catch_amalgamated.obj']
-for tdir in sorted(os.listdir('tests')):
-    if tdir == 'catch2' or not os.path.isdir(os.path.join('tests', tdir)):
-        continue
-    OPTS=['DIR:tests/' + tdir, 'DIR:tests/catch2', 'ZLIB']
-    for tfile in GetDirectoryContents('tests/' + tdir, ["test_*.cxx"]):
-        obj = 'run_cxx_tests_%s_%s.obj' % (tdir, os.path.splitext(tfile)[0])
-        TargetAdd(obj, opts=OPTS, input=tfile)
-        cxx_test_objs.append(obj)
-
-for obj in cxx_test_objs:
-    TargetAdd('run_cxx_tests.exe', input=obj)
-TargetAdd('run_cxx_tests.exe', input=COMMON_PANDA_LIBS)
-TargetAdd('run_cxx_tests.exe', opts=['SUBSYSTEM:CONSOLE', 'ZLIB'])
+            PyTargetAdd('run_tests.exe', input='bullet.pyd')
+    PyTargetAdd('run_tests.exe', input=COMMON_PANDA_LIBS)
+    PyTargetAdd('run_tests.exe', opts=['PYTHON', 'BULLET', 'RUN_TESTS_FLAGS'])
 
 #
 # Generate the models directory and samples directory
@@ -6231,23 +6390,16 @@ finally:
 
 # Run the test suite.
 if RUNTESTS:
-    # First the C++ suite, which is quick.
-    cxx_runner = FindLocation("run_cxx_tests.exe", [])
-    if cxx_runner.endswith(".js"):
-        cmdstr = "node " + BracketNameWithQuotes(cxx_runner)
+    if GetLinkAllStatic():
+        runner = FindLocation("run_tests.exe", [])
+        if runner.endswith(".js"):
+            cmdstr = "node " + BracketNameWithQuotes(runner)
+        else:
+            cmdstr = BracketNameWithQuotes(runner)
     else:
-        cmdstr = BracketNameWithQuotes(cxx_runner)
-    if GetVerbose():
-        cmdstr += " -s"
-    oscmd(cmdstr)
-
-    # Then the Python test suite, excluding the C++ tests.
-    runner = FindLocation("run_pytest.exe", [])
-    if runner.endswith(".js"):
-        cmdstr = "node " + BracketNameWithQuotes(runner)
-    else:
-        cmdstr = BracketNameWithQuotes(runner)
-    cmdstr += " tests --no-cxx-tests"
+        cmdstr = BracketNameWithQuotes(SDK["PYTHONEXEC"].replace('\\', '/'))
+        cmdstr += " -B -m pytest"
+    cmdstr += " tests"
     if GetVerbose():
         cmdstr += " --verbose"
     oscmd(cmdstr)
