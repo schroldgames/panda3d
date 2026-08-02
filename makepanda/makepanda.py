@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 ########################################################################
 #
 # To build panda using this script, type 'makepanda.py' on unix
@@ -1326,7 +1326,7 @@ def CompileCxx(obj,src,opts):
 
     if (COMPILER=="GCC"):
         if (src.endswith(".c")): cmd = GetCC() +' -fPIC -c -o ' + obj
-        else:                    cmd = GetCXX()+' -std=gnu++14 -ftemplate-depth-70 -fPIC -c -o ' + obj
+        else:                    cmd = GetCXX()+' -std=gnu++17 -ftemplate-depth-70 -fPIC -c -o ' + obj
         for (opt, dir) in INCDIRECTORIES:
             if (opt=="ALWAYS") or (opt in opts): cmd += ' -I' + BracketNameWithQuotes(dir)
         for (opt, dir) in FRAMEWORKDIRECTORIES:
@@ -1594,6 +1594,7 @@ def CompileIgate(woutd,wsrc,opts):
             cmd += ' -D_LP64 -D__LP64__ -D__aarch64__'
         else:
             cmd += ' -D__i386__'
+        cmd += ' -Duint="unsigned int"'
 
         target = GetTarget()
         if target == 'darwin':

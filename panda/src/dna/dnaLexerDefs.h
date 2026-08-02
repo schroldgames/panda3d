@@ -8,7 +8,6 @@
 
 #include "toontownbase.h"
 
-#include "typedef.h"
 
 #include <string>
 
