@@ -483,8 +483,8 @@ show_visible_no_conflict() {
   }
 
   // Randomize the list, so we'll pull the cells out in random order.
-  static std::mt19937 rng(std::random_device{}());
-  std::shuffle(empty_cells.begin(), empty_cells.end(), rng);
+  static const unsigned seed = 12345;
+  std::shuffle(empty_cells.begin(), empty_cells.end(), std::default_random_engine(seed));
 
   // Now find a home for each popup that needs one.
   Popups::iterator pi;
@@ -554,8 +554,8 @@ show_visible_resolve_conflict() {
   }
 
   // Randomize the list, so we'll pull the cells out in random order.
-  static std::mt19937 rng(std::random_device{}());
-  std::shuffle(empty_cells.begin(), empty_cells.end(), rng);
+  static const unsigned seed = 54321;
+  std::shuffle(empty_cells.begin(), empty_cells.end(), std::default_random_engine(seed));
 
 
   // And place all the cells from the head of the wants-visible list.
