@@ -10,17 +10,24 @@
 //       Access: Public
 //  Description: Return the nth group in the vector
 ////////////////////////////////////////////////////////////////////
-INLINE PT(DNAGroup) DNAGroup::at(uint index) {
+#ifdef CPPPARSER
+PT(DNAGroup) DNAGroup::at(unsigned int index);
+#else
+INLINE PT(DNAGroup) DNAGroup::at(unsigned int index) {
   nassertr(index < _group_vector.size(), (PT(DNAGroup))nullptr);
   return _group_vector[index];
 }
+#endif
 
 
-////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////
 //     Function: DNAGroup::current
 //       Access: Public
-//  Description: return the current group
-////////////////////////////////////////////////////////////////////
+// Description: return the current group
+//////////////////////////////////////////////////////////////////
+#ifdef CPPPARSER
+PT(DNAGroup) DNAGroup::current();
+#else
 INLINE PT(DNAGroup) DNAGroup::current() {
   return _group_vector.back();
 }
@@ -41,11 +48,15 @@ INLINE int DNAGroup::get_num_children() {
 //       Access: Public
 //  Description: Return the parent group
 ////////////////////////////////////////////////////////////////////
+#ifdef CPPPARSER
+PT(DNAGroup) DNAGroup::get_parent() const;
+#else
 INLINE PT(DNAGroup) DNAGroup::get_parent() const {
   return _parent;
 }
+#endif
 
-////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////
 //     Function: DNAGroup::set_parent
 //       Access: Public
 //  Description: Return the parent group

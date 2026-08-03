@@ -36,10 +36,19 @@ PUBLISHED:
 
   void add(PT(DNAGroup) group);
   void remove(PT(DNAGroup) group);
-  INLINE PT(DNAGroup) at(uint index);
-  INLINE PT(DNAGroup) current();
-  INLINE int get_num_children();
-  INLINE PT(DNAGroup) get_parent() const;
+#ifdef CPPPARSER
+   PT(DNAGroup) at(unsigned int index);
+   PT(DNAGroup) current();
+#else
+   INLINE PT(DNAGroup) at(unsigned int index);
+   INLINE PT(DNAGroup) current();
+#endif
+   INLINE int get_num_children();
+#ifdef CPPPARSER
+   PT(DNAGroup) get_parent() const;
+#else
+   INLINE PT(DNAGroup) get_parent() const;
+#endif
 
   virtual void write(std::ostream &out, DNAStorage *store, int indent_level = 0) const;
 

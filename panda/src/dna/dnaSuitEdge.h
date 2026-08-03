@@ -27,9 +27,17 @@ PUBLISHED:
               std::string zone_id);
   INLINE bool operator == (const DNASuitEdge &other) const;
 
-  INLINE PT(DNASuitPoint) get_start_point() const;
-  INLINE PT(DNASuitPoint) get_end_point() const;
-  INLINE std::string get_zone_id() const;
+#ifdef CPPPARSER
+   PT(DNASuitPoint) get_start_point() const;
+#else
+   INLINE PT(DNASuitPoint) get_start_point() const;
+#endif
+#ifdef CPPPARSER
+   PT(DNASuitPoint) get_end_point() const;
+#else
+   INLINE PT(DNASuitPoint) get_end_point() const;
+#endif
+   INLINE std::string get_zone_id() const;
   INLINE void set_zone_id(std::string zone_id);
   void output(std::ostream &out) const;
 

@@ -215,13 +215,17 @@ INLINE int DNAStorage::get_num_DNAVisGroupsAI() const {
 //       Access: Public
 //  Description: Return the ith vis group in our storage
 ////////////////////////////////////////////////////////////////////
-INLINE PT(DNAVisGroup) DNAStorage::get_DNAVisGroupAI(uint i) const {
+#ifdef CPPPARSER
+PT(DNAVisGroup) DNAStorage::get_DNAVisGroupAI(unsigned int i) const;
+#else
+INLINE PT(DNAVisGroup) DNAStorage::get_DNAVisGroupAI(unsigned int i) const {
   nassertr(i < _vis_group_vector.size(), (DNAVisGroup *)NULL);
   return _vis_group_vector[i];
 }
+#endif
 
 
-////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////
 //     Function: reset_block_door_pos_hpr
 //       Access: Public
 //  Description: clear out the map
@@ -304,24 +308,33 @@ INLINE int DNAStorage::get_num_suit_points() const {
 //       Access: Private
 //  Description: Convient way to return the point at index internally
 ////////////////////////////////////////////////////////////////////
+#ifdef CPPPARSER
+PT(DNASuitPoint) DNAStorage::get_suit_point_at_index(int index) const;
+#else
 INLINE PT(DNASuitPoint) DNAStorage::get_suit_point_at_index(int index) const {
   nassertr(index < (int)_suit_point_vector.size(), (DNASuitPoint *)NULL);
   return _suit_point_vector[index];
 }
+#endif
 
 
-////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////
 //     Function: get_suit_point_with_index
 //       Access: Private
-//  Description: Convient way to return the point at index internally
-////////////////////////////////////////////////////////////////////
+// Description: Convient way to return the point at index internally
+//////////////////////////////////////////////////////////////////
+#ifdef CPPPARSER
+PT(DNASuitPoint) DNAStorage::get_suit_point_with_index(int index) const;
+#else
 INLINE PT(DNASuitPoint) DNAStorage::get_suit_point_with_index(int index) const {
   SuitPointMap::const_iterator si = _suit_point_map.find(index);
   nassertr(si != _suit_point_map.end(), (DNASuitPoint *)NULL);
   return (*si).second;
 }
+#endif
 
-////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////
 //     Function: DNAStorage::WorkingSuitPath::Constructor
 //       Access: Public
 //  Description: Constructs the head of the path.
