@@ -1230,7 +1230,7 @@ def CompileCxx(obj,src,opts):
             if ("BIGOBJ" in opts) or GetTargetArch() == 'x64' or not PkgSkip("EIGEN"):
                 cmd += " /bigobj"
 
-            cmd += " /Zm300"
+            cmd += " /Zm300 /std:c++17"
             if 'EXCEPTIONS' in opts:
                 cmd += " /EHsc"
             else:
@@ -1594,7 +1594,6 @@ def CompileIgate(woutd,wsrc,opts):
             cmd += ' -D_LP64 -D__LP64__ -D__aarch64__'
         else:
             cmd += ' -D__i386__'
-        cmd += ' -Duint="unsigned int"'
 
         target = GetTarget()
         if target == 'darwin':
