@@ -31,6 +31,7 @@ PT(DNAGroup) DNAGroup::current();
 INLINE PT(DNAGroup) DNAGroup::current() {
   return _group_vector.back();
 }
+#endif
 
 
 ////////////////////////////////////////////////////////////////////
