@@ -525,7 +525,7 @@ class AstronInternalRepository(ConnectionRepository):
             dg.addServerHeader(doId, self.ourChannel, STATESERVER_OBJECT_SET_FIELDS)
             dg.addUint32(doId)
             dg.addUint16(fieldCount)
-            dg.appendData(fieldPacker.getString())
+            dg.appendData(fieldPacker.get_bytes())
             self.send(dg)
             # Now slide it into the zone we expect to see it in (so it
             # generates onto us with all of the fields in place)
