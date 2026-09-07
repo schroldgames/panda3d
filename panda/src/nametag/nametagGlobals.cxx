@@ -191,87 +191,88 @@ static LColorf arrow_colors[num_color_codes] = {
   LColorf(0.3f, 0.3f, 0.7f, 1.0f),   // CC_free_chat
 };
 
-// Normal avatar: blue.
+// Normal avatar: green (TTR).  Note this code is transient -- every toon
+// lands on CC_speed_chat or CC_free_chat once considerUnderstandable runs.
 static NametagGlobals::Colors normal_colors[num_button_states] = {
   // Normal avatar, not selected.
-  NametagGlobals::Colors(LColorf(0.0f, 0.0f, 1.0f, 1.0f),   // name fg
-                         LColorf(0.8f, 0.8f, 0.8f, 0.5f),   // name bg
-                         LColorf(0.0f, 0.0f, 0.0f, 1.0f),   // chat fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
+  NametagGlobals::Colors(LColorf(0.0f, 0.46f, 0.19f, 1.0f),  // name fg
+                         LColorf(0.8f, 0.8f, 0.8f, 0.5f),    // name bg
+                         LColorf(0.0f, 0.0f, 0.0f, 1.0f),    // chat fg
+                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),   // chat bg
 
   // Normal avatar, clicked.
-  NametagGlobals::Colors(LColorf(0.5f, 0.5f, 1.0f, 1.0f),   // name fg
+  NametagGlobals::Colors(LColorf(0.5f, 0.8f, 0.6f, 1.0f),   // name fg
                          LColorf(0.2f, 0.2f, 0.2f, 0.6f),   // name bg
                          LColorf(1.0f, 0.5f, 0.5f, 1.0f),   // chat fg
                          LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
 
   // Normal avatar, rollover.
-  NametagGlobals::Colors(LColorf(0.5f, 0.5f, 1.0f, 1.0f),   // name fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f),   // name bg
+  NametagGlobals::Colors(LColorf(0.0f, 0.6f, 0.2f, 1.0f),   // name fg
+                         LColorf(1.0f, 1.0f, 1.0f, 0.8f),   // name bg
                          LColorf(0.0f, 0.6f, 0.6f, 1.0f),   // chat fg
                          LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
 
   // Normal avatar, inactive.
-  NametagGlobals::Colors(LColorf(0.3f, 0.3f, 0.7f, 1.0f),   // name fg
-                         LColorf(0.8f, 0.8f, 0.8f, 0.5f),   // name bg
-                         LColorf(0.0f, 0.0f, 0.0f, 1.0f),   // chat fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
+  NametagGlobals::Colors(LColorf(0.0f, 0.35f, 0.14f, 1.0f),  // name fg
+                         LColorf(0.8f, 0.8f, 0.8f, 0.5f),    // name bg
+                         LColorf(0.0f, 0.0f, 0.0f, 1.0f),    // chat fg
+                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),   // chat bg
 };
 
-// Quicktalker-only avatar: an orangish red.
+// Quicktalker-only avatar: orange (TTR).
 static NametagGlobals::Colors no_chat_colors[num_button_states] = {
   // Quicktalker-only avatar, not selected.
-  NametagGlobals::Colors(LColorf(0.8f, 0.4f, 0.0f, 1.0f),   // name fg
-                         LColorf(1.0f, 1.0f, 1.0f, 0.5f),   // name bg
-                         LColorf(0.0f, 0.0f, 0.0f, 1.0f),   // chat fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
+  NametagGlobals::Colors(LColorf(0.85f, 0.38f, 0.0f, 1.0f),  // name fg
+                         LColorf(1.0f, 1.0f, 1.0f, 0.5f),    // name bg
+                         LColorf(0.0f, 0.0f, 0.0f, 1.0f),    // chat fg
+                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),   // chat bg
 
   // Quicktalker-only avatar, clicked.
-  NametagGlobals::Colors(LColorf(1.0f, 0.5f, 0.5f, 1.0f),   // name fg
-                         LColorf(0.2f, 0.2f, 0.2f, 0.6f),   // name bg
-                         LColorf(1.0f, 0.5f, 0.5f, 1.0f),   // chat fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
+  NametagGlobals::Colors(LColorf(0.93f, 0.69f, 0.5f, 1.0f),  // name fg
+                         LColorf(0.2f, 0.2f, 0.2f, 0.6f),    // name bg
+                         LColorf(1.0f, 0.5f, 0.5f, 1.0f),    // chat fg
+                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),   // chat bg
 
   // Quicktalker-only avatar, rollover.
-  NametagGlobals::Colors(LColorf(1.0f, 0.5f, 0.0f, 1.0f),   // name fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f),   // name bg
-                         LColorf(0.0f, 0.6f, 0.6f, 1.0f),   // chat fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
+  NametagGlobals::Colors(LColorf(0.99f, 0.44f, 0.0f, 1.0f),  // name fg
+                         LColorf(1.0f, 1.0f, 1.0f, 0.8f),    // name bg
+                         LColorf(0.0f, 0.6f, 0.6f, 1.0f),    // chat fg
+                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),   // chat bg
 
   // Quicktalker-only avatar, inactive.
-  NametagGlobals::Colors(LColorf(0.6f, 0.4f, 0.2f, 1.0f),   // name fg
-                         LColorf(0.8f, 0.8f, 0.8f, 0.5f),   // name bg
-                         LColorf(0.0f, 0.0f, 0.0f, 1.0f),   // chat fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
+  NametagGlobals::Colors(LColorf(0.77f, 0.26f, 0.0f, 1.0f),  // name fg
+                         LColorf(0.8f, 0.8f, 0.8f, 0.5f),    // name bg
+                         LColorf(0.0f, 0.0f, 0.0f, 1.0f),    // chat fg
+                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),   // chat bg
 };
 
-// Non-player avatar: an orangish red.  We use orangish red and
-// bluish green, instead of pure red and green, to help colorblind
-// people like me to differentiate the red and green nametags.
+// Non-player avatar -- NPC toons and doodles: orange (TTR).  Orange and
+// bluish green, rather than pure red and green, so the two are still
+// distinguishable to a colorblind player.
 static NametagGlobals::Colors non_player_colors[num_button_states] = {
   // Non-player avatar, not selected.
-  NametagGlobals::Colors(LColorf(0.8f, 0.4f, 0.0f, 1.0f),   // name fg
-                         LColorf(1.0f, 1.0f, 1.0f, 0.5f),   // name bg
-                         LColorf(0.0f, 0.0f, 0.0f, 1.0f),   // chat fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
+  NametagGlobals::Colors(LColorf(0.85f, 0.38f, 0.0f, 1.0f),  // name fg
+                         LColorf(1.0f, 1.0f, 1.0f, 0.5f),    // name bg
+                         LColorf(0.0f, 0.0f, 0.0f, 1.0f),    // chat fg
+                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),   // chat bg
 
   // Non-player avatar, clicked.
-  NametagGlobals::Colors(LColorf(1.0f, 0.5f, 0.5f, 1.0f),   // name fg
-                         LColorf(0.2f, 0.2f, 0.2f, 0.6f),   // name bg
-                         LColorf(1.0f, 0.5f, 0.5f, 1.0f),   // chat fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
+  NametagGlobals::Colors(LColorf(0.93f, 0.69f, 0.5f, 1.0f),  // name fg
+                         LColorf(0.2f, 0.2f, 0.2f, 0.6f),    // name bg
+                         LColorf(1.0f, 0.5f, 0.5f, 1.0f),    // chat fg
+                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),   // chat bg
 
   // Non-player avatar, rollover.
-  NametagGlobals::Colors(LColorf(1.0f, 0.5f, 0.0f, 1.0f),   // name fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f),   // name bg
-                         LColorf(0.0f, 0.6f, 0.6f, 1.0f),   // chat fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
+  NametagGlobals::Colors(LColorf(0.99f, 0.44f, 0.0f, 1.0f),  // name fg
+                         LColorf(1.0f, 1.0f, 1.0f, 0.8f),    // name bg
+                         LColorf(0.0f, 0.6f, 0.6f, 1.0f),    // chat fg
+                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),   // chat bg
 
   // Non-player avatar, inactive.
-  NametagGlobals::Colors(LColorf(0.6f, 0.4f, 0.2f, 1.0f),   // name fg
-                         LColorf(0.8f, 0.8f, 0.8f, 0.5f),   // name bg
-                         LColorf(0.0f, 0.0f, 0.0f, 1.0f),   // chat fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
+  NametagGlobals::Colors(LColorf(0.77f, 0.26f, 0.0f, 1.0f),  // name fg
+                         LColorf(0.8f, 0.8f, 0.8f, 0.5f),    // name bg
+                         LColorf(0.0f, 0.0f, 0.0f, 1.0f),    // chat fg
+                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),   // chat bg
 };
 
 // A suit, black.
@@ -290,7 +291,7 @@ static NametagGlobals::Colors suit_colors[num_button_states] = {
 
   // Suit, rollover.
   NametagGlobals::Colors(LColorf(0.5f, 0.5f, 0.5f, 1.0f),   // name fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f),   // name bg
+                         LColorf(1.0f, 1.0f, 1.0f, 0.8f),   // name bg
                          LColorf(0.6f, 0.0f, 0.6f, 1.0f),   // chat fg
                          LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
 
@@ -317,7 +318,7 @@ static NametagGlobals::Colors toon_building_colors[num_button_states] = {
 
   // Toon building, rollover.
   NametagGlobals::Colors(LColorf(0.5f, 0.5f, 0.5f, 1.0f),   // name fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f),   // name bg
+                         LColorf(1.0f, 1.0f, 1.0f, 0.8f),   // name bg
                          LColorf(0.6f, 0.0f, 0.6f, 1.0f),   // chat fg
                          LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
 
@@ -344,7 +345,7 @@ static NametagGlobals::Colors suit_building_colors[num_button_states] = {
 
   // Suit building, rollover.
   NametagGlobals::Colors(LColorf(0.5f, 0.5f, 0.5f, 1.0f),   // name fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f),   // name bg
+                         LColorf(1.0f, 1.0f, 1.0f, 0.8f),   // name bg
                          LColorf(0.6f, 0.0f, 0.6f, 1.0f),   // chat fg
                          LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
 
@@ -355,31 +356,31 @@ static NametagGlobals::Colors suit_building_colors[num_button_states] = {
                          LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
 };
 
-// Speed Chat: green.
+// Speed Chat: green (TTR).
 static NametagGlobals::Colors speed_chat_colors[num_button_states] = {
   // Speed Chat, not selected.
-  NametagGlobals::Colors(LColorf(0.0f, 0.6f, 0.2f, 1.0f),   // name fg
-                         LColorf(1.0f, 1.0f, 1.0f, 0.5f),   // name bg
-                         LColorf(0.0f, 0.0f, 0.0f, 1.0f),   // chat fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
+  NametagGlobals::Colors(LColorf(0.0f, 0.46f, 0.19f, 1.0f),  // name fg
+                         LColorf(1.0f, 1.0f, 1.0f, 0.5f),    // name bg
+                         LColorf(0.0f, 0.0f, 0.0f, 1.0f),    // chat fg
+                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),   // chat bg
 
   // Speed Chat, clicked.
-  NametagGlobals::Colors(LColorf(0.0f, 0.6f, 0.2f, 1.0f),   // name fg
+  NametagGlobals::Colors(LColorf(0.5f, 0.8f, 0.6f, 1.0f),   // name fg
                          LColorf(0.2f, 0.2f, 0.2f, 0.6f),   // name bg
                          LColorf(0.5f, 1.0f, 0.5f, 1.0f),   // chat fg
                          LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
 
   // Speed Chat, rollover.
-  NametagGlobals::Colors(LColorf(0.0f, 1.0f, 0.5f, 1.0f),   // name fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f),   // name bg
+  NametagGlobals::Colors(LColorf(0.0f, 0.6f, 0.2f, 1.0f),   // name fg
+                         LColorf(1.0f, 1.0f, 1.0f, 0.8f),   // name bg
                          LColorf(0.6f, 0.0f, 0.6f, 1.0f),   // chat fg
                          LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
 
   // Speed Chat, inactive.
-  NametagGlobals::Colors(LColorf(0.1f, 0.4f, 0.2f, 1.0f),   // name fg
-                         LColorf(0.8f, 0.8f, 0.8f, 0.5f),   // name bg
-                         LColorf(0.0f, 0.0f, 0.0f, 1.0f),   // chat fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
+  NametagGlobals::Colors(LColorf(0.0f, 0.35f, 0.14f, 1.0f),  // name fg
+                         LColorf(0.8f, 0.8f, 0.8f, 0.5f),    // name bg
+                         LColorf(0.0f, 0.0f, 0.0f, 1.0f),    // chat fg
+                         LColorf(1.0f, 1.0f, 1.0f, 1.0f)),   // chat bg
 };
 
 // Free Chat: blue.
@@ -398,7 +399,7 @@ static NametagGlobals::Colors free_chat_colors[num_button_states] = {
 
   // Free Chat, rollover.
   NametagGlobals::Colors(LColorf(0.5f, 0.5f, 1.0f, 1.0f),   // name fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f),   // name bg
+                         LColorf(1.0f, 1.0f, 1.0f, 0.8f),   // name bg
                          LColorf(0.0f, 0.6f, 0.6f, 1.0f),   // chat fg
                          LColorf(1.0f, 1.0f, 1.0f, 1.0f)),  // chat bg
 
@@ -438,7 +439,7 @@ static NametagGlobals::Colors whisper_colors[num_button_states] = {
 
   // Whisper, rollover.
   NametagGlobals::Colors(LColorf(0.5f, 0.5f, 0.5f, 1.0f),   // name fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f),   // name bg
+                         LColorf(1.0f, 1.0f, 1.0f, 0.8f),   // name bg
                          LColorf(0.0f, 0.0f, 0.0f, 1.0f),   // chat fg
                          LColorf(0.4f, 0.8f, 1.0f, 1.0f)),  // chat bg
 
@@ -465,7 +466,7 @@ static NametagGlobals::Colors emote_whisper_colors[num_button_states] = {
 
   // Emote whisper, rollover.
   NametagGlobals::Colors(LColorf(0.5f, 0.5f, 0.5f, 1.0f),   // name fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f),   // name bg
+                         LColorf(1.0f, 1.0f, 1.0f, 0.8f),   // name bg
                          LColorf(0.0f, 0.0f, 0.0f, 1.0f),   // chat fg
                          LColorf(0.4f, 1.0f, 0.4f, 1.0f)),  // chat bg
 
@@ -492,7 +493,7 @@ static NametagGlobals::Colors system_colors[num_button_states] = {
 
   // System, rollover.
   NametagGlobals::Colors(LColorf(0.5f, 0.5f, 0.5f, 1.0f),   // name fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f),   // name bg
+                         LColorf(1.0f, 1.0f, 1.0f, 0.8f),   // name bg
                          LColorf(0.0f, 0.0f, 0.0f, 1.0f),   // chat fg
                          LColorf(0.8f, 0.4f, 1.0f, 1.0f)),  // chat bg
 
@@ -519,7 +520,7 @@ static NametagGlobals::Colors toontown_boarding_group_colors[num_button_states] 
 
   // Boarding Group whisper, rollover.
   NametagGlobals::Colors(LColorf(0.5f, 0.5f, 0.5f, 1.0f),   // name fg
-                         LColorf(1.0f, 1.0f, 1.0f, 1.0f),   // name bg
+                         LColorf(1.0f, 1.0f, 1.0f, 0.8f),   // name bg
                          LColorf(0.0f, 0.0f, 0.0f, 1.0f),   // chat fg
                          LColorf(0.98f, 0.6f, 0.38f, 0.6f)),  // chat bg
 
