@@ -46,7 +46,15 @@ const float NametagGlobals::nominal_avatar_width = 5.0f;
 const float NametagGlobals::name_wordwrap = 7.5f;  // Wide enough for "Telemarketer"
 const float NametagGlobals::building_name_wordwrap = 8.5f;  // Wide enough for "Sidesplitter's"
 const float NametagGlobals::house_name_wordwrap = 10.0f;  // Wide enough for "Mizzenscooter's"
-const float NametagGlobals::chat_2d_wordwrap = 8.0f; // Wide enough for "Telemarketer:"
+// 2d chat -- a message in a margin cell -- is scaled so this width plus the
+// balloon's border fills the cell, and a name so name_wordwrap fills it, so
+// the two only read the same size when this is name_wordwrap - 1.  At the
+// retail 8.0 a message was 17% smaller than the name on the tag above it.
+// 6.5 would match exactly but grows a long NPC quest page past the height of
+// its cell, so 7.0 -- within 6% -- is as far as this goes.  It is also the
+// size of a WhisperPopup, which is the reason for changing it here: unlike
+// Nametag2d, WhisperPopup has no Python setter to override it with.
+const float NametagGlobals::chat_2d_wordwrap = 7.0f;
 const float NametagGlobals::chat_3d_wordwrap = 10.0f;
 
 // This is the width of the chatBalloon geometry models, as they are
