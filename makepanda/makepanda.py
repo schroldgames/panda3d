@@ -2099,6 +2099,14 @@ def CompileJava(target, src, opts):
             if os.path.isfile(javac_path):
                 cmd = BracketNameWithQuotes(javac_path) + " "
 
+        # Cap the class-file version at Java 17: the d8 in build-tools 34
+        # cannot read class files newer than v61 (a JDK 21 javac defaults to
+        # v65 and d8 fails with "Unsupported class file major version 65").
+        cmd += "--release 17 "
+        # -parameters: d8 (R8 8.2.2) NPEs on a MethodParameters attribute whose
+        # synthetic-constructor parameter names are null (the default without
+        # this flag); emitting real names avoids the crash.
+        cmd += "-parameters "
         cmd += "-Xlint:deprecation "
 
     optlevel = GetOptimizeOption(opts)
