@@ -16,7 +16,9 @@ package org.panda3d.android;
 import android.app.NativeActivity;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.PackageInfo;
 import android.content.res.AssetFileDescriptor;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
@@ -167,6 +169,30 @@ public class PandaActivity extends NativeActivity {
 
     public String getCacheDirString() {
         return getCacheDir().toString();
+    }
+
+    public String getFilesDirString() {
+        return getFilesDir().toString();
+    }
+
+    public String getMainExpansionPath() {
+        try {
+            PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), 0);
+            java.io.File obbDir = getObbDir();
+            if (obbDir == null) {
+                throw new RuntimeException("Android OBB directory is unavailable");
+            }
+            return new java.io.File(
+                    obbDir,
+                    "main." + info.versionCode + "." + getPackageName() + ".obb")
+                    .toString();
+        } catch (PackageManager.NameNotFoundException e) {
+            throw new RuntimeException("Unable to read package version", e);
+        }
+    }
+
+    public boolean isDebuggable() {
+        return (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
     }
 
     /**
