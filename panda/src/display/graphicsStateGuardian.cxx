@@ -58,6 +58,7 @@
 #include "clipPlaneAttrib.h"
 #include "fogAttrib.h"
 #include "renderModeAttrib.h"
+#include "alphaTestAttrib.h"
 #include "config_pstatclient.h"
 
 #include <limits.h>
@@ -1250,6 +1251,15 @@ fetch_specified_part(Shader::ShaderMatInput part, InternalName *name,
       return;
     }
     into[0] = LCAST(float, target_color->get_scale());
+    return;
+  }
+  case Shader::SMO_alpha_test_ref: {
+    // Hands the alpha test to the shader, for backends with no fixed-function
+    // one.  x is the reference alpha, y the PandaCompareFunc mode as a float.
+    const AlphaTestAttrib *target_alpha_test = (const AlphaTestAttrib *)
+      _target_rs->get_attrib_def(AlphaTestAttrib::get_class_slot());
+    into[0].set((float)target_alpha_test->get_reference_alpha(),
+                (float)target_alpha_test->get_mode(), 0, 0);
     return;
   }
   case Shader::SMO_attr_fog: {
