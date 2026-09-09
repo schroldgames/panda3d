@@ -508,6 +508,9 @@ cp_dependency(ShaderMatInput inp) {
   if (inp == SMO_attr_pointparams) {
     dep |= SSD_render_mode | SSD_transform | SSD_frame;
   }
+  if (inp == SMO_alpha_test_ref) {
+    dep |= SSD_alpha_test;
+  }
 
   return dep;
 }
@@ -545,6 +548,7 @@ cp_size(ShaderMatInput inp) {
   case SMO_texcolor_i:
   case SMO_texconst_i:
   case SMO_attr_pointparams:
+  case SMO_alpha_test_ref:
     return 1;
 
   case SMO_identity:

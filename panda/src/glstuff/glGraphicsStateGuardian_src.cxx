@@ -278,6 +278,7 @@ static const string default_fshader =
   "out vec4 p3d_FragColor;\n"
   "uniform sampler2D p3d_Texture0;\n"
   "uniform vec4 p3d_TexAlphaOnly;\n"
+  "uniform vec4 p3d_AlphaTestRef;\n"
 #else
   "#version 100\n"
   "precision mediump float;\n"
@@ -289,16 +290,44 @@ static const string default_fshader =
   "varying lowp vec4 color;\n"
   "uniform lowp sampler2D p3d_Texture0;\n"
   "uniform lowp vec4 p3d_TexAlphaOnly;\n"
+  // Not lowp: .y carries a compare mode up to 8, outside lowp's [-2, 2].
+  "uniform mediump vec4 p3d_AlphaTestRef;\n"
 #endif
   "void main(void) {\n"
+  // Accumulate into a local rather than the output: GLSL ES 1.00 does not
+  // guarantee that gl_FragColor can be read back, and the alpha test below
+  // needs to see the final alpha.
 #ifndef OPENGLES
-  "  p3d_FragColor = textureProj(p3d_Texture0, texcoord);\n"
-  "  p3d_FragColor += p3d_TexAlphaOnly;\n" // Hack for text rendering
-  "  p3d_FragColor *= color;\n"
+  "  vec4 result = textureProj(p3d_Texture0, texcoord);\n"
 #else
-  "  gl_FragColor = texture2DProj(p3d_Texture0, texcoord);\n"
-  "  gl_FragColor += p3d_TexAlphaOnly;\n" // Hack for text rendering
-  "  gl_FragColor *= color;\n"
+  "  mediump vec4 result = texture2DProj(p3d_Texture0, texcoord);\n"
+#endif
+  "  result += p3d_TexAlphaOnly;\n" // Hack for text rendering
+  "  result *= color;\n"
+  // The alpha test, which neither of the backends that use this shader has a
+  // fixed-function pipeline to do for us.  On GLES2 in particular,
+  // SUPPORT_FIXED_FUNCTION is undefined, so without this the AlphaTestAttrib
+  // that the cull traverser derives from M_binary / M_dual is dropped and
+  // masked textures (tree foliage, lightpoles) draw fully opaque.
+  //
+  // .x is the reference alpha and .y the PandaCompareFunc mode; comparing
+  // against half-steps keeps the mode dispatch off exact float equality.
+  // M_none (0) and M_always (8) fall through without discarding.
+  "  if (p3d_AlphaTestRef.y > 0.5) {\n"
+  "    float a = result.a;\n"
+  "    float r = p3d_AlphaTestRef.x;\n"
+  "    if (p3d_AlphaTestRef.y < 1.5) discard;\n"                      // never
+  "    else if (p3d_AlphaTestRef.y < 2.5) { if (a >= r) discard; }\n" // less
+  "    else if (p3d_AlphaTestRef.y < 3.5) { if (a != r) discard; }\n" // equal
+  "    else if (p3d_AlphaTestRef.y < 4.5) { if (a >  r) discard; }\n" // less_equal
+  "    else if (p3d_AlphaTestRef.y < 5.5) { if (a <= r) discard; }\n" // greater
+  "    else if (p3d_AlphaTestRef.y < 6.5) { if (a == r) discard; }\n" // not_equal
+  "    else if (p3d_AlphaTestRef.y < 7.5) { if (a <  r) discard; }\n" // greater_equal
+  "  }\n"
+#ifndef OPENGLES
+  "  p3d_FragColor = result;\n"
+#else
+  "  gl_FragColor = result;\n"
 #endif
   "}\n";
 #endif

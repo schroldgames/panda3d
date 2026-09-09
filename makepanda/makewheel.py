@@ -13,7 +13,7 @@ import time
 import struct
 from optparse import OptionParser
 from base64 import urlsafe_b64encode
-from makepandacore import LocateBinary, GetExtensionSuffix, SetVerbose, GetVerbose, GetMetadataValue, CrossCompiling, GetThirdpartyDir, SDK, GetStrip
+from makepandacore import LocateBinary, GetExtensionSuffix, SetVerbose, GetVerbose, GetMetadataValue, CrossCompiling, GetThirdpartyDir, SDK, GetStrip, SetTarget
 from locations import get_config_var
 from sysconfig import get_platform
 
@@ -56,7 +56,10 @@ def is_fat_file(path):
 
 def get_python_ext_module_dir():
     if CrossCompiling():
-        return os.path.join(GetThirdpartyDir(), "python", "lib", SDK["PYTHONVERSION"], "lib-dynload")
+        # SDK is only populated during a makepanda run; standalone makewheel
+        # falls back to the running interpreter's version.
+        pyver = SDK.get("PYTHONVERSION", '%d.%d' % sys.version_info[:2])
+        return os.path.join(GetThirdpartyDir(), "python", "lib", pyver, "lib-dynload")
     else:
         import _ctypes
         return os.path.dirname(_ctypes.__file__)
@@ -541,7 +544,12 @@ class WheelFile(object):
 
                     self.consider_add_dependency(target_dep, dep)
 
-                subprocess.call([GetStrip(), "-s", temp.name])
+                # Stripping is best-effort: for a cross target GetStrip() is
+                # llvm-strip, which may not be on PATH; unstripped libs still
+                # load, they are just larger.
+                strip_bin = GetStrip()
+                if LocateBinary(strip_bin):
+                    subprocess.call([strip_bin, "-s", temp.name])
 
                 if self.platform.startswith('android'):
                     # We must link explicitly with Python, because the usual
@@ -683,6 +691,15 @@ def makewheel(version, output_dir, platform=None):
     is_macosx = platform.startswith('macosx_')
     is_android = platform.startswith('android_')
 
+    if is_android:
+        # makewheel runs standalone, so makepandacore still thinks the target
+        # is the host. Set it to the android target so GetExtensionSuffix()
+        # returns the target-triple .so suffix (picking up the cross-compiled
+        # extension modules) and GetThirdpartyDir() points at the android
+        # thirdparty tree (so the aarch64 libpython is packaged, not the
+        # host's x86_64 one).
+        SetTarget('android', platform.split('_')[-1])
+
     # Global filepaths
     panda3d_dir = join(output_dir, "panda3d")
     pandac_dir = join(output_dir, "pandac")
@@ -811,7 +828,11 @@ if __debug__:
     # deploy_libs directory, for use by deploy-ng.
     ext_suffix = '.pyd' if is_windows else '.so'
 
-    for file in sorted(os.listdir(ext_mod_dir)):
+    # The android thirdparty python ships no lib-dynload (its C extensions are
+    # not built separately), so this directory may not exist; the frozen blob
+    # does not need those modules at runtime.
+    ext_mod_files = sorted(os.listdir(ext_mod_dir)) if os.path.isdir(ext_mod_dir) else []
+    for file in ext_mod_files:
         if file.endswith(ext_suffix):
             if file.startswith('_tkinter.'):
                 # Tkinter is supplied in a separate wheel.

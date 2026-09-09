@@ -215,6 +215,11 @@ public:
     // Point parameters
     SMO_attr_pointparams,
 
+    // Reference alpha and compare mode of the AlphaTestAttrib, so that a
+    // shader can perform the alpha test itself on backends that have no
+    // fixed-function one (OpenGL ES 2, GL core profile).
+    SMO_alpha_test_ref,
+
     SMO_INVALID
   };
 
@@ -324,6 +329,7 @@ public:
     SSD_view_transform= 0x2000,
     SSD_tex_gen      = 0x4000,
     SSD_render_mode  = 0x8000,
+    SSD_alpha_test  = 0x10000,
   };
 
   enum ShaderBug {

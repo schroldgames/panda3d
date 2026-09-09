@@ -26,6 +26,7 @@
 #include "lightAttrib.h"
 #include "clipPlaneAttrib.h"
 #include "renderModeAttrib.h"
+#include "alphaTestAttrib.h"
 #include "bamCache.h"
 
 using std::dec;
@@ -1477,6 +1478,19 @@ reflect_uniform(int i, char *name_buffer, GLsizei name_buflen) {
       _slider_table_size = param_size;
       return;
     }
+    if (noprefix == "AlphaTestRef") {
+      Shader::ShaderMatSpec bind;
+      bind._id = arg_id;
+      bind._func = Shader::SMF_first;
+      bind._index = 0;
+      bind._part[0] = Shader::SMO_alpha_test_ref;
+      bind._arg[0] = nullptr;
+      bind._part[1] = Shader::SMO_identity;
+      bind._arg[1] = nullptr;
+      bind._piece = Shader::SMP_vec4;
+      _shader->cp_add_mat_spec(bind);
+      return;
+    }
     if (noprefix == "TexAlphaOnly") {
       Shader::ShaderMatSpec bind;
       bind._id = arg_id;
@@ -2311,6 +2325,10 @@ set_state_and_transform(const RenderState *target_rs,
     if (state_rs->get_attrib(RenderModeAttrib::get_class_slot()) !=
         target_rs->get_attrib(RenderModeAttrib::get_class_slot())) {
       altered |= Shader::SSD_render_mode;
+    }
+    if (state_rs->get_attrib(AlphaTestAttrib::get_class_slot()) !=
+        target_rs->get_attrib(AlphaTestAttrib::get_class_slot())) {
+      altered |= Shader::SSD_alpha_test;
     }
     _state_rs = target_rs;
   }
