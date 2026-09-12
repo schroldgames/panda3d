@@ -307,8 +307,11 @@ generate_text(ChatBalloon *balloon, const std::string &text, TextFont *font) {
                       false, 0, NodePath(), false, false, new_button);
   _balloon = _this_np.attach_new_node(geom);
 
-  // Fit the balloon snugly within our cell.
-  float scale = 2.0f * get_cell_width() / (wordwrap + 1.0f);
+  // Same scale as Nametag2d's chat balloon, so a whisper reads at exactly
+  // the size of the name on the tag it replaces: 2 * cell_width /
+  // name_wordwrap.  The wordwrap only sets how wide a line runs before it
+  // wraps and stacks.
+  float scale = 2.0f * get_cell_width() / NametagGlobals::name_wordwrap;
 
   float width =
     NametagGlobals::balloon_external_width * balloon->get_hscale();

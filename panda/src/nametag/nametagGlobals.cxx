@@ -46,20 +46,31 @@ const float NametagGlobals::nominal_avatar_width = 5.0f;
 const float NametagGlobals::name_wordwrap = 7.5f;  // Wide enough for "Telemarketer"
 const float NametagGlobals::building_name_wordwrap = 8.5f;  // Wide enough for "Sidesplitter's"
 const float NametagGlobals::house_name_wordwrap = 10.0f;  // Wide enough for "Mizzenscooter's"
-// 2d chat -- a message in a margin cell -- is scaled so this width plus the
-// balloon's border fills the cell, and a name so name_wordwrap fills it, so
-// the two read the same size only when this is name_wordwrap - 1.  At the
-// retail 8.0 a message was 17% smaller than the name on the tag above it.
+// 2d chat -- a message in a margin cell -- is wrapped at this width.  The
+// font size is set separately: Nametag2d and WhisperPopup scale the balloon
+// by 2 * cell_width / name_wordwrap, so a message always reads at exactly the
+// size of the name on the tag above it, whatever this is.  While the scale
+// was coupled to the wrap (2 * cell_width / (wordwrap + 1)), the retail 8.0
+// made a message 17% smaller than that name, and 6.5 (name_wordwrap - 1) was
+// the value that matched it -- at the cost of wrapping a line early, so long
+// messages stacked tall instead of running wide.
 //
-// A long message can then grow taller than its cell, but that is not a reason
-// to keep it small: against a 2.0-tall cell the worst NPC quest page measures
-// 2.25 at 7.0 and 2.67 at 6.5, so it already overflowed at the larger value.
-// Nothing clips it either -- the balloon draws outside the cell box, into the
-// half-cell gap between cells.
+// 7.5 is name_wordwrap, and it is the width at which rendered text stops
+// overrunning its cell at all.  A line only outgrows the cell past ~8.2 em, so
+// a 7.5-wrap line -- 7.5 plus whatever the last word overshoots by -- stays
+// inside it: measured at 1080p landscape against a 205 px cell, text overruns
+// by 0.0 px at every sample, against up to 5.8 px at 8.0.  Only the decorative
+// balloon border reaches past the cell box, into the gap between cells (or, on
+// a side cell, toward the window edge, which ToonBase's MarginCellEdgeInset
+// holds it off).
 //
-// This is also the size of a WhisperPopup, which is the reason the constant
+// Retail's 8.0 was chosen while the wrap still set the font size, so it
+// carries no behaviour worth keeping now that the two are decoupled -- and its
+// comment claimed "wide enough for Telemarketer:", which measures 5.71 em.
+//
+// This is also the wrap of a WhisperPopup, which is the reason the constant
 // matters: unlike Nametag2d, WhisperPopup has no Python setter to override it.
-const float NametagGlobals::chat_2d_wordwrap = 6.5f;  // name_wordwrap - 1
+const float NametagGlobals::chat_2d_wordwrap = 7.5f;  // = name_wordwrap
 const float NametagGlobals::chat_3d_wordwrap = 10.0f;
 
 // This is the width of the chatBalloon geometry models, as they are

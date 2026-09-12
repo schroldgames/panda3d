@@ -563,8 +563,13 @@ generate_chat(ChatBalloon *balloon) {
     start_flash(new_button);
   }
 
-  // Fit the balloon snugly within our cell.
-  float scale = 2.0f * get_cell_width() / (wordwrap + 1.0f);
+  // Scale the balloon so its text reads at exactly the size of the name on
+  // the tag above: the name is scaled by 2 * cell_width / name_wordwrap, and
+  // both are drawn with the same font at the same size.  The wordwrap only
+  // sets how wide a line runs before it wraps and stacks; a full line can be
+  // wider than the cell, and the balloon draws past the cell box rather
+  // than being clipped.
+  float scale = 2.0f * get_cell_width() / NametagGlobals::name_wordwrap;
 
   float width =
     NametagGlobals::balloon_external_width * balloon->get_hscale();
