@@ -119,8 +119,36 @@ const double NametagGlobals::button_delay_time = 0.2;
 
 // This is the maximum distance at which a building nametag is still
 // visible.  Buildings farther away than this are not displayed in the
-// nametag space.
-const float NametagGlobals::building_nametag_distance = 40.0f;
+// nametag space.  It gates building-coloured tags only -- CC_toon_building,
+// CC_suit_building and CC_house_building, in Nametag2d::is_visible -- and is
+// the only distance cutoff in the nametag system at all: a toon or NPC tag
+// never disappears for being far away.
+//
+// Retail's 40 put a shop's tag out of reach until you were most of the way to
+// its door, which reads as tags popping in rather than a street you can
+// navigate by.  Measured off the landmark_building positions in the street
+// DNA, a street spans 390 to 650 units, so 40 covered barely a tenth of one.
+// 400 covers a whole street from either end on all but the longest.  The
+// constant is in world units, compared as 400^2 against the squared distance
+// Nametag2d keeps.
+//
+// This is deliberately wide enough that the cutoff stops being the limiter.
+// Two other things still are, and they are why a wide radius is safe:
+//
+//   - A margin cell is only taken when the tag's Nametag3d is NOT fully
+//     onscreen (the NF_onscreen test at the top of Nametag2d::is_visible).
+//     Buildings you are looking at cost nothing; only ones beside or behind
+//     you compete.
+//   - Cells go to the highest Nametag2d::get_score(), which is
+//     1000 - distance2 with no bonus for being a toon, so what shows is the
+//     nearest handful either way.  Whispers are exempt: an un-rendered
+//     WhisperPopup scores 2000, above any nametag.
+//
+// The cost is that once demand exceeds the cells MarginManager has, a nearer
+// building outranks a farther toon, so mid-distance toon tags are what get
+// pushed out.  scripts/agent-scripts/gui-fit/measure_building_nametag_distance.py
+// re-derives the eligible-tag counts per zone for any radius.
+const float NametagGlobals::building_nametag_distance = 400.0f;
 
 // The color of QuickTalker (SpeedChat) balloons unless we specify
 // otherwise.
