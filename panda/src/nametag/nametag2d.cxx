@@ -372,10 +372,15 @@ generate_name() {
             frame[2] - NametagGlobals::card_pad[2],
             frame[3] + NametagGlobals::card_pad[3]);
 
-  // Compute the appropriate scale for the name so that its wordwrap
-  // width exactly fits within the popup.
-  float name_wordwrap = group->get_name_wordwrap();
-  float scale = 2.0f * get_cell_width() / name_wordwrap;
+  // Scale the name so it reads at exactly the size of a toon's name,
+  // whatever its own wordwrap is.  The group's wordwrap only sets how wide a
+  // line runs before it wraps and stacks; deriving the scale from it as well
+  // made the two the same knob, so a building or house -- which needs a wider
+  // wrap to keep a long title off a fourth line -- could only get one by
+  // rendering smaller than the toon tag beside it.  A full line can now be
+  // wider than the cell, and the name draws past the cell box rather than
+  // being clipped, the same as a chat balloon.
+  float scale = 2.0f * get_cell_width() / NametagGlobals::name_wordwrap;
   
   LMatrix4f mat = LMatrix4f::scale_mat(scale);
 
