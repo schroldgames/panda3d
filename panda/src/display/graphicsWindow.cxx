@@ -392,6 +392,16 @@ close_ime() {
   return;
 }
 
+bool GraphicsWindow::
+has_second_pointer() const {
+  return false;
+}
+
+LPoint2 GraphicsWindow::
+get_second_pointer() const {
+  return LPoint2(0, 0);
+}
+
 /**
  * Determines which of the indicated window sizes are supported by available
  * hardware (e.g.  in fullscreen mode).

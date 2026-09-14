@@ -101,6 +101,9 @@ PUBLISHED:
   virtual bool move_pointer(int device, int x, int y);
   virtual void close_ime();
 
+  virtual bool has_second_pointer() const;
+  virtual LPoint2 get_second_pointer() const;
+
 public:
   void request_properties(const WindowProperties &requested_properties);
 

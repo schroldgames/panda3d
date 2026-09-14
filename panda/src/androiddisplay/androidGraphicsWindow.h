@@ -48,6 +48,9 @@ public:
   virtual void process_events();
   virtual void set_properties_now(WindowProperties &properties);
 
+  virtual bool has_second_pointer() const;
+  virtual LPoint2 get_second_pointer() const;
+
 protected:
   virtual void close_window();
   virtual bool open_window();
@@ -65,16 +68,43 @@ private:
 
   ButtonHandle map_button(int32_t keycode);
 
+  // Emits the button-up for whichever touch slot (mouse1 or touch2) owns the
+  // given Android pointer ID, and clears that slot.
+  void release_touch_pointer(int32_t pointer_id);
+
+  // Records the touch2 pointer's position from the event, if it carries it.
+  void update_touch2_pos(const AInputEvent *event);
+
 private:
   struct android_app* _app;
 
   EGLDisplay _egl_display;
   EGLSurface _egl_surface;
 
-  bool _primary_pointer_down;
+  // Android pointer IDs owning the two forwarded touch slots, or -1 when that
+  // slot is free. A new finger takes mouse1 if it is free, otherwise touch2.
+  // Tracked by ID, not index, so a finger lifting does not reassign the
+  // remaining finger mid-gesture.
+  int32_t _mouse1_pointer_id;
+  int32_t _touch2_pointer_id;
   int32_t _mouse_button_state;
 
+  // Normalised position (NDC, -1..1, y-up) of the touch2 pointer, valid while
+  // _touch2_pointer_id >= 0.
+  LPoint2 _touch2_pos;
+  bool _touch2_pos_valid;
+
   GraphicsWindowInputDevice *_input;
+
+public:
+  // The button the touch2 slot emits. Deliberately not a mouse button:
+  // MouseWatcher ties mouse buttons to its single pointer, routing them to
+  // the first finger's region and suppressing them under a held widget.
+  static ButtonHandle touch2() { return _touch2; }
+  static void init_touch_buttons();
+
+private:
+  static ButtonHandle _touch2;
 
 public:
   static TypeHandle get_class_type() {

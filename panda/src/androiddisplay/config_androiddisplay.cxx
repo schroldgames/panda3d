@@ -47,6 +47,7 @@ init_libandroiddisplay() {
 
   AndroidGraphicsPipe::init_type();
   AndroidGraphicsWindow::init_type();
+  AndroidGraphicsWindow::init_touch_buttons();
   AndroidGraphicsStateGuardian::init_type();
 
   GraphicsPipeSelection *selection = GraphicsPipeSelection::get_global_ptr();

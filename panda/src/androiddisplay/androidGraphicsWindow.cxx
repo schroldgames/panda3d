@@ -18,6 +18,7 @@
 #include "config_android.h"
 
 #include "graphicsPipe.h"
+#include "buttonRegistry.h"
 #include "keyboardButton.h"
 #include "mouseButton.h"
 #include "clockObject.h"
@@ -33,6 +34,15 @@
 extern IMPORT_CLASS struct android_app* panda_android_app;
 
 TypeHandle AndroidGraphicsWindow::_type_handle;
+ButtonHandle AndroidGraphicsWindow::_touch2;
+
+/**
+ * Registers the touch2 button. Called once by init_libandroiddisplay.
+ */
+void AndroidGraphicsWindow::
+init_touch_buttons() {
+  ButtonRegistry::ptr()->register_button(_touch2, "touch2");
+}
 
 /**
  *
@@ -45,9 +55,12 @@ AndroidGraphicsWindow(GraphicsEngine *engine, GraphicsPipe *pipe,
                       int flags,
                       GraphicsStateGuardian *gsg,
                       GraphicsOutput *host) :
-  GraphicsWindow(engine, pipe, std::move(name), fb_prop, win_prop, flags, gsg, host),
-  _primary_pointer_down(false),
-  _mouse_button_state(0)
+    GraphicsWindow(engine, pipe, std::move(name), fb_prop, win_prop, flags, gsg, host),
+    _mouse1_pointer_id(-1),
+    _touch2_pointer_id(-1),
+    _mouse_button_state(0),
+    _touch2_pos(0, 0),
+    _touch2_pos_valid(false)
 {
   AndroidGraphicsPipe *android_pipe;
   DCAST_INTO_V(android_pipe, _pipe);
@@ -541,23 +554,54 @@ handle_motion_event(const AInputEvent *event) {
   int32_t pointer_index = (action >> AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT);
   action &= AMOTION_EVENT_ACTION_MASK;
 
+  // Touch slot ownership. A new finger takes mouse1 if that slot is free,
+  // otherwise touch2; a third finger is ignored. Tracked by Android pointer
+  // ID, not index, so a finger lifting does not reassign the remaining finger
+  // mid-gesture, and a finger landing after the first has lifted is mouse1
+  // again. The MouseWatcher pointer belongs to mouse1. touch2 carries its own
+  // position (get_second_pointer) and is not a mouse button, so MouseWatcher
+  // neither routes it to mouse1's region nor suppresses it under a widget.
+  bool last_lifted = (action == AMOTION_EVENT_ACTION_UP ||
+                      action == AMOTION_EVENT_ACTION_CANCEL);
+
+  // Record touch2's position before any slot changes, so the event that
+  // lifts it still reports where it lifted.
+  update_touch2_pos(event);
   if (action == AMOTION_EVENT_ACTION_DOWN) {
-    _primary_pointer_down = true;
+    // A fresh gesture: no other pointer is down, so any slot still held lost
+    // its release. Drop it before claiming, so nothing stays pressed.
+    release_touch_pointer(_mouse1_pointer_id);
+    release_touch_pointer(_touch2_pointer_id);
   }
-  else if (action == AMOTION_EVENT_ACTION_UP
-        || action == AMOTION_EVENT_ACTION_CANCEL) {
-    _primary_pointer_down = false;
+  if (action == AMOTION_EVENT_ACTION_DOWN ||
+      action == AMOTION_EVENT_ACTION_POINTER_DOWN) {
+    int32_t pointer_id = AMotionEvent_getPointerId(event, pointer_index);
+    if (_mouse1_pointer_id < 0) {
+      _mouse1_pointer_id = pointer_id;
+      _input->button_down(MouseButton::one());
+    }
+    else if (_touch2_pointer_id < 0) {
+      _touch2_pointer_id = pointer_id;
+      _input->button_down(_touch2);
+    }
+  }
+  else if (action == AMOTION_EVENT_ACTION_POINTER_UP) {
+    // Only the slot this pointer owns is released; an ignored third finger
+    // owns none.
+    release_touch_pointer(AMotionEvent_getPointerId(event, pointer_index));
+  }
+  else if (last_lifted) {
+    // The last pointer lifted, or the system canceled the stream (the app
+    // lost focus, an incoming call). Release both slots so no control sticks.
+    release_touch_pointer(_mouse1_pointer_id);
+    release_touch_pointer(_touch2_pointer_id);
+    _input->set_pointer_out_of_window();
   }
 
+  // Hardware buttons (a stylus or a mouse's physical buttons). A bare finger
+  // touch sets no button bits, so this path is inert for touch; the
+  // mouse1/touch2 slots above are driven purely by pointer ownership.
   int32_t button_state = AMotionEvent_getButtonState(event);
-
-  // Emulate mouse click; as long as the primary pointer is held down,
-  // and no other mouse button is causing it, the primary mouse button
-  // is considered depressed.
-  if (button_state == 0 && _primary_pointer_down &&
-      action != AMOTION_EVENT_ACTION_BUTTON_RELEASE) {
-    button_state |= AMOTION_EVENT_BUTTON_PRIMARY;
-  }
 
   int32_t changed = _mouse_button_state ^ button_state;
   if (changed != 0) {
@@ -636,12 +680,102 @@ handle_motion_event(const AInputEvent *event) {
     }
   }
 
-  float x = AMotionEvent_getX(event, 0) - _app->contentRect.left;
-  float y = AMotionEvent_getY(event, 0) - _app->contentRect.top;
+  // The MouseWatcher pointer follows the mouse1 slot (looked up by ID, since
+  // the pointer array compacts as fingers lift). With neither slot held it
+  // follows pointer 0, which is what a hovering mouse or stylus reports --
+  // but not on the event that lifts the last pointer, or the pointer would
+  // re-enter the window it just left and the widget under it would stay
+  // hovered. With only touch2 held the pointer stays out of the window.
+  if (_mouse1_pointer_id >= 0) {
+    size_t num_pointers = AMotionEvent_getPointerCount(event);
+    for (size_t i = 0; i < num_pointers; ++i) {
+      if (AMotionEvent_getPointerId(event, i) == _mouse1_pointer_id) {
+        _input->set_pointer_in_window(
+          AMotionEvent_getX(event, i) - _app->contentRect.left,
+          AMotionEvent_getY(event, i) - _app->contentRect.top);
+        break;
+      }
+    }
+  }
+  else if (_touch2_pointer_id < 0 && !last_lifted) {
+    _input->set_pointer_in_window(
+      AMotionEvent_getX(event, 0) - _app->contentRect.left,
+      AMotionEvent_getY(event, 0) - _app->contentRect.top);
+  }
 
-  _input->set_pointer_in_window(x, y);
+  // A finger that just took touch2 has its position recorded here.
+  update_touch2_pos(event);
 
   return 1;
+}
+
+/**
+ * Records the touch2 pointer's position from the event, in NDC (-1..1, y-up)
+ * like MouseWatcher::get_mouse().  Does nothing if touch2 is free or the event
+ * does not carry its pointer.
+ */
+void AndroidGraphicsWindow::
+update_touch2_pos(const AInputEvent *event) {
+  if (_touch2_pointer_id < 0) {
+    return;
+  }
+  size_t num_pointers = AMotionEvent_getPointerCount(event);
+  for (size_t i = 0; i < num_pointers; ++i) {
+    if (AMotionEvent_getPointerId(event, i) == _touch2_pointer_id) {
+      double px = AMotionEvent_getX(event, i) - _app->contentRect.left;
+      double py = AMotionEvent_getY(event, i) - _app->contentRect.top;
+      double w = _app->contentRect.right - _app->contentRect.left;
+      double h = _app->contentRect.bottom - _app->contentRect.top;
+      if (w > 0 && h > 0) {
+        _touch2_pos = LPoint2((px / w) * 2.0 - 1.0, 1.0 - (py / h) * 2.0);
+        _touch2_pos_valid = true;
+      }
+      break;
+    }
+  }
+}
+
+/**
+ * Emits the button-up for whichever touch slot (mouse1 or touch2) owns the
+ * given Android pointer ID, and clears that slot.  A pointer that owns no
+ * slot, or -1, does nothing.
+ */
+void AndroidGraphicsWindow::
+release_touch_pointer(int32_t pointer_id) {
+  if (pointer_id < 0) {
+    return;
+  }
+  if (pointer_id == _mouse1_pointer_id) {
+    _input->button_up(MouseButton::one());
+    _mouse1_pointer_id = -1;
+    // The MouseWatcher pointer belongs to mouse1; with it lifted the pointer
+    // leaves the window, even while touch2 is still down.
+    _input->set_pointer_out_of_window();
+  }
+  else if (pointer_id == _touch2_pointer_id) {
+    _input->button_up(_touch2);
+    _touch2_pointer_id = -1;
+    // The last position is kept: a touch2 press and release handled in the
+    // same frame still need to know where the finger was.
+    _touch2_pos_valid = false;
+  }
+}
+
+/**
+ * Returns true while the touch2 slot is held and its position is known.
+ */
+bool AndroidGraphicsWindow::
+has_second_pointer() const {
+  return _touch2_pos_valid;
+}
+
+/**
+ * Returns the touch2 pointer's position in NDC (-1..1, y-up).  After the
+ * finger lifts this is where it lifted, until another finger takes touch2.
+ */
+LPoint2 AndroidGraphicsWindow::
+get_second_pointer() const {
+  return _touch2_pos;
 }
 
 /**
