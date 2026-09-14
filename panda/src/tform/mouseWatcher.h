@@ -83,6 +83,9 @@ PUBLISHED:
   INLINE MouseWatcherRegion *get_over_region(PN_stdfloat x, PN_stdfloat y) const;
   MouseWatcherRegion *get_over_region(const LPoint2 &pos) const;
 
+  bool touch_press(const LPoint2 &pos);
+  void touch_release(const LPoint2 &pos);
+
   INLINE bool is_button_down(ButtonHandle button) const;
   INLINE bool is_raw_button_down(ButtonHandle button) const;
 
@@ -228,6 +231,9 @@ private:
   PT(MouseWatcherRegion) _preferred_region;
   PT(MouseWatcherRegion) _preferred_button_down_region;
   bool _button_down;
+
+  // The region a touch_press() went down on, released by touch_release().
+  PT(MouseWatcherRegion) _touch_down_region;
 
   bool _enter_multiple;
   bool _implicit_click;
