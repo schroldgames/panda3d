@@ -575,7 +575,14 @@ handle_key_event(const AInputEvent *event) {
 
   // Is it an up or down event?
   if (action == AKEY_EVENT_ACTION_DOWN) {
-    if (button != ButtonHandle::none()) {
+    // Holding back makes Android repeat the down event; a repeated Escape
+    // would open and close the book while it is held, so only the first
+    // press counts. The event is still reported handled, so Android does
+    // not run its default back behaviour. (The same repeat affects every
+    // mapped key; dropping it everywhere is a follow-up.)
+    bool repeated_back = (keycode == AKEYCODE_BACK &&
+                          AKeyEvent_getRepeatCount(event) > 0);
+    if (button != ButtonHandle::none() && !repeated_back) {
       _input->button_down(button);
     }
     if (unicode != 0) {
@@ -835,7 +842,6 @@ map_button(int32_t keycode) {
     case AKEYCODE_SOFT_LEFT:
     case AKEYCODE_SOFT_RIGHT:
     case AKEYCODE_HOME:
-    case AKEYCODE_BACK:
     case AKEYCODE_CALL:
     case AKEYCODE_ENDCALL:
       break;
@@ -1014,6 +1020,7 @@ map_button(int32_t keycode) {
     case AKEYCODE_BUTTON_SELECT:
     case AKEYCODE_BUTTON_MODE:
       break;
+    case AKEYCODE_BACK:
     case AKEYCODE_ESCAPE:
       return KeyboardButton::escape();
     case AKEYCODE_FORWARD_DEL:
