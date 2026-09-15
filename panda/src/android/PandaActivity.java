@@ -29,7 +29,18 @@ import dalvik.system.BaseDexClassLoader;
 import org.panda3d.android.NativeIStream;
 import org.panda3d.android.NativeOStream;
 
+import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
+import android.text.InputType;
 import android.util.Log;
+import android.view.KeyEvent;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.inputmethod.BaseInputConnection;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
+import android.view.inputmethod.InputMethodManager;
 
 /**
  * The entry point for a Panda-based activity.  Loads the Panda libraries and
@@ -196,6 +207,241 @@ public class PandaActivity extends NativeActivity {
     }
 
     /**
+     * The view the soft keyboard types into.  NativeActivity's own content
+     * view is not a text editor, so an input method gives it only a fallback
+     * connection, which turns one committed character into key events and
+     * anything longer (swipe typing, an autocorrection) into an ACTION_MULTIPLE
+     * event whose characters the NDK cannot read.  This view instead gives the
+     * input method a connection that forwards its edits to the engine as text.
+     * Touch and hardware keys still reach the engine through the window's
+     * input queue, whichever view has focus.
+     */
+    private ImeView mImeView;
+    private volatile boolean mImeWanted = false;
+    private boolean mImeShown = false;
+    private final Handler mUiHandler = new Handler(Looper.getMainLooper());
+
+    /**
+     * Shows the system soft keyboard for a newly focused text box.  Safe to
+     * call from any thread.
+     */
+    public void showSoftKeyboard() {
+        mImeWanted = true;
+        mUiHandler.post(() -> applySoftKeyboard(true));
+    }
+
+    /**
+     * Hides the system soft keyboard.  Safe to call from any thread.  Delayed
+     * slightly, so that one text box handing focus to another (a focus-out
+     * then a focus-in) does not flicker the keyboard.
+     */
+    public void hideSoftKeyboard() {
+        mImeWanted = false;
+        mUiHandler.postDelayed(() -> applySoftKeyboard(false), 100);
+    }
+
+    private void applySoftKeyboard(boolean showRequest) {
+        InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm == null) {
+            return;
+        }
+        if (mImeWanted) {
+            if (!showRequest) {
+                // A hide overtaken by a later show.
+                return;
+            }
+            if (mImeView == null) {
+                mImeView = new ImeView(this);
+                addContentView(mImeView, new ViewGroup.LayoutParams(1, 1));
+            }
+            mImeView.setFocusable(true);
+            mImeView.setFocusableInTouchMode(true);
+            mImeView.requestFocus();
+            // Start the input method over, so no word state carries into the
+            // new box.
+            imm.restartInput(mImeView);
+            mImeShown = true;
+            requestSoftInput(imm, 10);
+        } else if (mImeShown) {
+            mImeShown = false;
+            imm.hideSoftInputFromWindow(mImeView.getWindowToken(), 0);
+            // Not focusable while hidden, so the view cannot take focus back
+            // and bring the keyboard up by itself when the window regains focus.
+            mImeView.setFocusableInTouchMode(false);
+            mImeView.setFocusable(false);
+        }
+    }
+
+    /**
+     * showSoftInput is refused until the input method has started serving the
+     * newly focused view, which happens asynchronously, so retry briefly.
+     */
+    private void requestSoftInput(InputMethodManager imm, int attempts) {
+        if (!mImeWanted || !mImeShown) {
+            return;
+        }
+        if (!imm.showSoftInput(mImeView, 0) && attempts > 1) {
+            mUiHandler.postDelayed(() -> requestSoftInput(imm, attempts - 1), 50);
+        }
+    }
+
+    private static class ImeView extends View {
+        ImeView(Context context) {
+            super(context);
+        }
+
+        @Override
+        public boolean onCheckIsTextEditor() {
+            return true;
+        }
+
+        @Override
+        public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
+            outAttrs.inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES;
+            // No fullscreen extract view in landscape: it would hide the game.
+            outAttrs.imeOptions = EditorInfo.IME_ACTION_DONE
+                    | EditorInfo.IME_FLAG_NO_EXTRACT_UI
+                    | EditorInfo.IME_FLAG_NO_FULLSCREEN;
+            outAttrs.initialSelStart = 0;
+            outAttrs.initialSelEnd = 0;
+            return new ImeConnection(this);
+        }
+    }
+
+    /**
+     * Keeps the input method's own copy of the text in an Editable, as for any
+     * text view, and after every edit sends the engine the difference from what
+     * it has already been sent: backspaces for what was removed, then the
+     * characters that replace it.  Composing text (the word being typed, which
+     * a keyboard can still autocorrect) is sent as it is typed, so the box
+     * always holds exactly what is on screen, and a correction arrives as
+     * backspaces and retyping.  This assumes the box's cursor stays at the end
+     * of what the keyboard typed.  Every character, punctuation included, goes
+     * through unchanged; the box decides what it accepts.
+     */
+    private static class ImeConnection extends BaseInputConnection {
+        private final View mView;
+        private String mSent = "";
+
+        ImeConnection(View view) {
+            super(view, true);
+            mView = view;
+        }
+
+        private void sync() {
+            String now = getEditable().toString();
+            int common = 0;
+            int limit = Math.min(now.length(), mSent.length());
+            while (common < limit && now.charAt(common) == mSent.charAt(common)) {
+                ++common;
+            }
+            if (common > 0 && Character.isHighSurrogate(now.charAt(common - 1))) {
+                --common;
+            }
+            int removed = mSent.codePointCount(common, mSent.length());
+            String added = now.substring(common);
+            int[] codepoints = new int[added.codePointCount(0, added.length())];
+            for (int i = 0, j = 0; i < added.length(); ++j) {
+                int codepoint = added.codePointAt(i);
+                codepoints[j] = codepoint;
+                i += Character.charCount(codepoint);
+            }
+            mSent = now;
+            if (removed > 0 || codepoints.length > 0) {
+                nativeImeEdit(removed, codepoints);
+            }
+        }
+
+        /**
+         * Sends Enter, which submits or closes the box, and starts the input
+         * method over on an empty editor to match.
+         */
+        private void submit() {
+            super.finishComposingText();
+            sync();
+            nativeImeKey(KeyEvent.KEYCODE_ENTER, true);
+            nativeImeKey(KeyEvent.KEYCODE_ENTER, false);
+            getEditable().clear();
+            mSent = "";
+            InputMethodManager imm = (InputMethodManager)
+                    mView.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm != null) {
+                imm.restartInput(mView);
+            }
+        }
+
+        @Override
+        public boolean commitText(CharSequence text, int newCursorPosition) {
+            if ("\n".contentEquals(text)) {
+                submit();
+                return true;
+            }
+            boolean result = super.commitText(text, newCursorPosition);
+            sync();
+            return result;
+        }
+
+        @Override
+        public boolean setComposingText(CharSequence text, int newCursorPosition) {
+            boolean result = super.setComposingText(text, newCursorPosition);
+            sync();
+            return result;
+        }
+
+        @Override
+        public boolean finishComposingText() {
+            boolean result = super.finishComposingText();
+            sync();
+            return result;
+        }
+
+        @Override
+        public boolean deleteSurroundingText(int beforeLength, int afterLength) {
+            boolean result = super.deleteSurroundingText(beforeLength, afterLength);
+            sync();
+            return result;
+        }
+
+        @Override
+        public boolean performEditorAction(int actionCode) {
+            submit();
+            return true;
+        }
+
+        @Override
+        public boolean sendKeyEvent(KeyEvent event) {
+            int keycode = event.getKeyCode();
+            boolean down = (event.getAction() == KeyEvent.ACTION_DOWN);
+            if (keycode == KeyEvent.KEYCODE_ENTER || keycode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+                if (down) {
+                    submit();
+                }
+                return true;
+            }
+            if (keycode == KeyEvent.KEYCODE_DEL && getEditable().length() > 0) {
+                // Delete through the editor, so it stays in step with the box.
+                if (down) {
+                    deleteSurroundingText(1, 0);
+                }
+                return true;
+            }
+            int unicode = event.getUnicodeChar(event.getMetaState());
+            if (unicode > 0 && keycode != KeyEvent.KEYCODE_DEL) {
+                // Some keyboards send digits and symbols as key events.
+                if (down) {
+                    commitText(new String(Character.toChars(unicode)), 1);
+                }
+                return true;
+            }
+            if (event.getAction() != KeyEvent.ACTION_MULTIPLE) {
+                // Backspace on an empty editor, the arrows, and so on.
+                nativeImeKey(keycode, down);
+            }
+            return true;
+        }
+    }
+
+    /**
      * Sets the window title.
      */
     public void setWindowTitle(final CharSequence title) {
@@ -230,4 +476,6 @@ public class PandaActivity extends NativeActivity {
 
     private static native long nativeMmap(int fd, long off, long len);
     private static native void nativeThreadEntry(long ptr, long data);
+    static native void nativeImeEdit(int backspaces, int[] codepoints);
+    static native void nativeImeKey(int keycode, boolean down);
 }

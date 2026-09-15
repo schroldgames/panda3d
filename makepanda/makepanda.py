@@ -4983,6 +4983,8 @@ if GetTarget() == 'android':
     TargetAdd('org/panda3d/android/PandaActivity.class', opts=OPTS, input='PandaActivity.java')
     TargetAdd('org/panda3d/android/PandaActivity$1.class', opts=OPTS+['DEPENDENCYONLY'], input='PandaActivity.java')
     TargetAdd('org/panda3d/android/PandaActivity$2.class', opts=OPTS+['DEPENDENCYONLY'], input='PandaActivity.java')
+    TargetAdd('org/panda3d/android/PandaActivity$ImeView.class', opts=OPTS+['DEPENDENCYONLY'], input='PandaActivity.java')
+    TargetAdd('org/panda3d/android/PandaActivity$ImeConnection.class', opts=OPTS+['DEPENDENCYONLY'], input='PandaActivity.java')
     TargetAdd('org/panda3d/android/PythonActivity.class', opts=OPTS, input='PythonActivity.java')
     TargetAdd('org/panda3d/android/PythonActivity$ActivityResultListener.class', opts=OPTS+['DEPENDENCYONLY'], input='PythonActivity.java')
 
@@ -4991,6 +4993,8 @@ if GetTarget() == 'android':
     TargetAdd('classes.dex', input='org/panda3d/android/PandaActivity.class')
     TargetAdd('classes.dex', input='org/panda3d/android/PandaActivity$1.class')
     TargetAdd('classes.dex', input='org/panda3d/android/PandaActivity$2.class')
+    TargetAdd('classes.dex', input='org/panda3d/android/PandaActivity$ImeView.class')
+    TargetAdd('classes.dex', input='org/panda3d/android/PandaActivity$ImeConnection.class')
     TargetAdd('classes.dex', input='org/panda3d/android/PythonActivity.class')
     TargetAdd('classes.dex', input='org/panda3d/android/PythonActivity$ActivityResultListener.class')
 

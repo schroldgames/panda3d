@@ -19,6 +19,7 @@
 #include "configVariableString.h"
 #include "configVariableBool.h"
 #include "configVariableInt.h"
+#include "pvector.h"
 
 #include <android/native_activity.h>
 #include <jni.h>
@@ -43,6 +44,24 @@ extern jfieldID jni_BitmapFactory_Options_outHeight;
 EXPORT_CLASS Filename android_find_library(ANativeActivity *activity, const std::string &lib);
 EXPORT_CLASS void android_set_title(ANativeActivity *activity, const std::string &title);
 EXPORT_CLASS void android_show_toast(ANativeActivity *activity, const std::string &message, int duration);
+
+/**
+ * An edit the soft keyboard made to the focused text box.  PandaActivity's
+ * input connection queues these on the UI thread, and the window applies them
+ * on its own thread in process_events.  With a keycode of -1, delete
+ * _backspaces characters before the cursor and then type _text; otherwise
+ * press (_down) or release the Android keycode.
+ */
+struct AndroidImeEvent {
+  int _backspaces;
+  std::wstring _text;
+  int _keycode;
+  bool _down;
+};
+
+EXPORT_CLASS void android_queue_ime_event(const AndroidImeEvent &event);
+EXPORT_CLASS void android_take_ime_events(pvector<AndroidImeEvent> &events);
+EXPORT_CLASS int android_get_unicode_char(int device_id, int keycode, int meta_state);
 
 // Used to support pyjnius
 extern "C" {

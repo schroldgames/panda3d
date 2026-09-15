@@ -204,6 +204,33 @@ process_events() {
   if (source != nullptr) {
     source->process(_app, source);
   }
+
+  // Apply what the soft keyboard typed since the last call.  PandaActivity's
+  // input connection queues its edits as text rather than key events, so the
+  // characters (punctuation and capitals included) arrive as keystrokes and
+  // never as buttons, while Enter and Backspace arrive as buttons.
+  pvector<AndroidImeEvent> ime_events;
+  android_take_ime_events(ime_events);
+  for (const AndroidImeEvent &ime_event : ime_events) {
+    if (ime_event._keycode >= 0) {
+      ButtonHandle button = map_button(ime_event._keycode);
+      if (button != ButtonHandle::none()) {
+        if (ime_event._down) {
+          _input->button_down(button);
+        } else {
+          _input->button_up(button);
+        }
+      }
+      continue;
+    }
+    for (int i = 0; i < ime_event._backspaces; ++i) {
+      _input->button_down(KeyboardButton::backspace());
+      _input->button_up(KeyboardButton::backspace());
+    }
+    for (wchar_t ch : ime_event._text) {
+      _input->keystroke((int)ch);
+    }
+  }
 }
 
 /**
@@ -525,20 +552,40 @@ handle_key_event(const AInputEvent *event) {
 
   int32_t keycode = AKeyEvent_getKeyCode(event);
   ButtonHandle button = map_button(keycode);
+  int32_t action = AKeyEvent_getAction(event);
 
-  if (button == ButtonHandle::none()) {
+  // A text box inserts characters only from keystrokes, so a key that types
+  // one also sends the character, with shift and the other modifiers applied.
+  // This path is hardware keys only: the soft keyboard's text arrives through
+  // PandaActivity's input connection instead (see process_events).
+  int unicode = 0;
+  if (action == AKEY_EVENT_ACTION_DOWN) {
+    unicode = android_get_unicode_char(AInputEvent_getDeviceId(event), keycode,
+                                       AKeyEvent_getMetaState(event));
+    if (unicode < ' ' || unicode == 0x7f) {
+      unicode = 0;
+    }
+  }
+
+  if (button == ButtonHandle::none() && unicode == 0) {
     androiddisplay_cat.warning()
       << "Unknown keycode: " << keycode << "\n";
     return 0;
   }
 
   // Is it an up or down event?
-  int32_t action = AKeyEvent_getAction(event);
   if (action == AKEY_EVENT_ACTION_DOWN) {
-    _input->button_down(button);
+    if (button != ButtonHandle::none()) {
+      _input->button_down(button);
+    }
+    if (unicode != 0) {
+      _input->keystroke(unicode);
+    }
   }
   else if (action == AKEY_EVENT_ACTION_UP) {
-    _input->button_up(button);
+    if (button != ButtonHandle::none()) {
+      _input->button_up(button);
+    }
   }
   // TODO AKEY_EVENT_ACTION_MULTIPLE
 
