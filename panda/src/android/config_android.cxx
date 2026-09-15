@@ -17,9 +17,14 @@
 #include "dconfig.h"
 #include "pandaSystem.h"
 
+#include <mutex>
+
 NotifyCategoryDef(android, "");
 
 struct android_app *panda_android_app = nullptr;
+
+static std::mutex ime_events_lock;
+static pvector<AndroidImeEvent> ime_events;
 
 jclass    jni_PandaActivity;
 jmethodID jni_PandaActivity_readBitmapSize;
@@ -192,6 +197,68 @@ void android_show_toast(ANativeActivity *activity, const std::string &message, i
   jstring jmsg = env->NewStringUTF(message.c_str());
   env->CallVoidMethod(activity->clazz, jni_PandaActivity_showToast, jmsg, (jint)duration);
   env->DeleteLocalRef(jmsg);
+}
+
+/**
+ * Queues a soft keyboard edit for the window to apply.  Called on the UI
+ * thread.
+ */
+void android_queue_ime_event(const AndroidImeEvent &event) {
+  std::lock_guard<std::mutex> holder(ime_events_lock);
+  ime_events.push_back(event);
+}
+
+/**
+ * Moves every queued soft keyboard edit into the given vector, which should be
+ * empty.  Called on the window thread.
+ */
+void android_take_ime_events(pvector<AndroidImeEvent> &events) {
+  std::lock_guard<std::mutex> holder(ime_events_lock);
+  events.swap(ime_events);
+}
+
+/**
+ * Returns the character a hardware key types with the given modifier state,
+ * via the device's KeyCharacterMap, since the NDK has no accessor for it.
+ * Returns 0 if the key types nothing, or is a dead key.
+ */
+int android_get_unicode_char(int device_id, int keycode, int meta_state) {
+  Thread *thread = Thread::get_current_thread();
+  JNIEnv *env = thread->get_jni_env();
+  nassertr(env != nullptr, 0);
+
+  static jclass key_map_class = nullptr;
+  static jmethodID key_map_load = nullptr;
+  static jmethodID key_map_get = nullptr;
+  if (key_map_class == nullptr) {
+    jclass cls = env->FindClass("android/view/KeyCharacterMap");
+    nassertr(cls != nullptr, 0);
+    key_map_class = (jclass)env->NewGlobalRef(cls);
+    env->DeleteLocalRef(cls);
+    key_map_load = env->GetStaticMethodID(key_map_class, "load", "(I)Landroid/view/KeyCharacterMap;");
+    key_map_get = env->GetMethodID(key_map_class, "get", "(II)I");
+  }
+
+  jobject key_map = env->CallStaticObjectMethod(key_map_class, key_map_load, (jint)device_id);
+  if (env->ExceptionCheck()) {
+    // UnavailableException: the device went away.
+    env->ExceptionClear();
+    return 0;
+  }
+  if (key_map == nullptr) {
+    return 0;
+  }
+  jint result = env->CallIntMethod(key_map, key_map_get, (jint)keycode, (jint)meta_state);
+  env->DeleteLocalRef(key_map);
+  if (env->ExceptionCheck()) {
+    env->ExceptionClear();
+    return 0;
+  }
+  if (result & 0x80000000) {
+    // KeyCharacterMap.COMBINING_ACCENT: a dead key, which types nothing alone.
+    return 0;
+  }
+  return result;
 }
 
 /**
