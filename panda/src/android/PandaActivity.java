@@ -32,13 +32,17 @@ import org.panda3d.android.NativeOStream;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Editable;
 import android.text.InputType;
+import android.text.Selection;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.ExtractedText;
+import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
 
@@ -322,10 +326,69 @@ public class PandaActivity extends NativeActivity {
     private static class ImeConnection extends BaseInputConnection {
         private final View mView;
         private String mSent = "";
+        // Set when the input method asks to be kept up to date with the whole
+        // text (GET_EXTRACTED_TEXT_MONITOR); -1 when it has not asked.
+        private int mExtractToken = -1;
+        private boolean mExtractMonitor = false;
 
         ImeConnection(View view) {
             super(view, true);
             mView = view;
+        }
+
+        private InputMethodManager imm() {
+            return (InputMethodManager)
+                    mView.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+        }
+
+        /**
+         * Tells the input method where the cursor and the composing word now
+         * are, as a TextView does from onSelectionChanged.  Without this the
+         * input method cannot track the editor at all: Gboard answers by
+         * turning off glide typing and the suggestion strip, so the editor
+         * behaves like a password box even though the declared inputType is
+         * ordinary text.  Every edit that reaches the engine reports here too.
+         */
+        private void notifyIme() {
+            InputMethodManager imm = imm();
+            if (imm == null) {
+                return;
+            }
+            Editable text = getEditable();
+            imm.updateSelection(mView,
+                    Selection.getSelectionStart(text), Selection.getSelectionEnd(text),
+                    getComposingSpanStart(text), getComposingSpanEnd(text));
+            if (mExtractMonitor) {
+                imm.updateExtractedText(mView, mExtractToken, extract());
+            }
+        }
+
+        private ExtractedText extract() {
+            Editable text = getEditable();
+            ExtractedText out = new ExtractedText();
+            out.text = text.toString();
+            out.startOffset = 0;
+            // The whole text every time, not a partial update.
+            out.partialStartOffset = -1;
+            out.partialEndOffset = -1;
+            out.selectionStart = Selection.getSelectionStart(text);
+            out.selectionEnd = Selection.getSelectionEnd(text);
+            out.flags = 0;
+            return out;
+        }
+
+        /**
+         * The input method reads the surrounding text through this to build
+         * suggestions.  BaseInputConnection returns null, which leaves it with
+         * no context to suggest from.
+         */
+        @Override
+        public ExtractedText getExtractedText(ExtractedTextRequest request, int flags) {
+            if (request != null && (flags & GET_EXTRACTED_TEXT_MONITOR) != 0) {
+                mExtractToken = request.token;
+                mExtractMonitor = true;
+            }
+            return extract();
         }
 
         private void sync() {
@@ -350,6 +413,9 @@ public class PandaActivity extends NativeActivity {
             if (removed > 0 || codepoints.length > 0) {
                 nativeImeEdit(removed, codepoints);
             }
+            // Report unconditionally: the cursor and the composing span move
+            // on edits that change no text, such as finishComposingText.
+            notifyIme();
         }
 
         /**
