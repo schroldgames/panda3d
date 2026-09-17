@@ -135,12 +135,92 @@ _py_is_debuggable(PyObject *self, PyObject *args) {
   return PyBool_FromLong(value == JNI_TRUE);
 }
 
+/**
+ * Gets a JNIEnv for the current thread, attaching it to the Java VM if needed.
+ * The app thread is attached during android_main, but this is robust to being
+ * called from any thread.
+ */
+static JNIEnv *
+get_jni_env(ANativeActivity *activity) {
+  if (activity == nullptr || activity->vm == nullptr) {
+    return nullptr;
+  }
+  JavaVM *vm = (JavaVM *)activity->vm;
+  JNIEnv *env = nullptr;
+  int status = vm->GetEnv((void **)&env, JNI_VERSION_1_6);
+  if (status == JNI_EDETACHED) {
+    if (vm->AttachCurrentThread(&env, nullptr) != JNI_OK) {
+      return nullptr;
+    }
+  } else if (status != JNI_OK) {
+    return nullptr;
+  }
+  return env;
+}
+
+/**
+ * Calls a no-argument void method on the activity instance via JNI.
+ */
+static PyObject *
+call_activity_void(ANativeActivity *activity, const char *method_name) {
+  JNIEnv *env = get_jni_env(activity);
+  if (env == nullptr) {
+    PyErr_SetString(PyExc_RuntimeError, "Unable to obtain a JNI environment");
+    return nullptr;
+  }
+  jclass activity_class = env->GetObjectClass(activity->clazz);
+  jmethodID method = env->GetMethodID(activity_class, method_name, "()V");
+  env->DeleteLocalRef(activity_class);
+  if (method == nullptr) {
+    env->ExceptionClear();
+    PyErr_Format(PyExc_RuntimeError, "PandaActivity.%s is unavailable", method_name);
+    return nullptr;
+  }
+  env->CallVoidMethod(activity->clazz, method);
+  if (env->ExceptionCheck()) {
+    env->ExceptionDescribe();
+    env->ExceptionClear();
+    PyErr_Format(PyExc_RuntimeError, "PandaActivity.%s failed", method_name);
+    return nullptr;
+  }
+  Py_RETURN_NONE;
+}
+
+/**
+ * Shows the system soft keyboard. Safe to call from any thread: the Java side
+ * posts the work to the UI thread.
+ */
+static PyObject *
+_py_show_ime(PyObject *self, PyObject *args) {
+  ANativeActivity *activity = panda_android_app->activity;
+  if (activity == nullptr) {
+    PyErr_SetString(PyExc_RuntimeError, "Android activity is not available");
+    return nullptr;
+  }
+  return call_activity_void(activity, "showSoftKeyboard");
+}
+
+/**
+ * Hides the system soft keyboard. Safe to call from any thread.
+ */
+static PyObject *
+_py_hide_ime(PyObject *self, PyObject *args) {
+  ANativeActivity *activity = panda_android_app->activity;
+  if (activity == nullptr) {
+    PyErr_SetString(PyExc_RuntimeError, "Android activity is not available");
+    return nullptr;
+  }
+  return call_activity_void(activity, "hideSoftKeyboard");
+}
+
 static PyMethodDef python_simple_funcs[] = {
   { "log_write", &_py_log_write, METH_VARARGS },
   { "find_library", &_py_find_library, METH_VARARGS },
   { "get_files_dir", &_py_get_files_dir, METH_NOARGS },
   { "get_main_expansion_path", &_py_get_main_expansion_path, METH_NOARGS },
   { "is_debuggable", &_py_is_debuggable, METH_NOARGS },
+  { "show_ime", &_py_show_ime, METH_NOARGS },
+  { "hide_ime", &_py_hide_ime, METH_NOARGS },
   { NULL, NULL }
 };
 

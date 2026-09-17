@@ -46,3 +46,37 @@ EXPORT_JNI void
 Java_org_panda3d_android_PandaActivity_nativeThreadEntry(JNIEnv* env, jobject self, jlong func, jlong data) {
   ((void (*)(void *))(void *)func)((void *)data);
 }
+
+/**
+ * Queues a soft keyboard edit: delete some characters before the cursor, then
+ * type the given codepoints.  Called on the UI thread.
+ */
+EXPORT_JNI void
+Java_org_panda3d_android_PandaActivity_nativeImeEdit(JNIEnv* env, jclass, jint backspaces, jintArray codepoints) {
+  AndroidImeEvent event;
+  event._backspaces = backspaces;
+  event._keycode = -1;
+  event._down = false;
+
+  jsize length = env->GetArrayLength(codepoints);
+  jint *elements = env->GetIntArrayElements(codepoints, nullptr);
+  for (jsize i = 0; i < length; ++i) {
+    event._text.push_back((wchar_t)elements[i]);
+  }
+  env->ReleaseIntArrayElements(codepoints, elements, JNI_ABORT);
+
+  android_queue_ime_event(event);
+}
+
+/**
+ * Queues a key the soft keyboard pressed or released that is not text, such as
+ * Enter or Backspace.  Called on the UI thread.
+ */
+EXPORT_JNI void
+Java_org_panda3d_android_PandaActivity_nativeImeKey(JNIEnv* env, jclass, jint keycode, jboolean down) {
+  AndroidImeEvent event;
+  event._backspaces = 0;
+  event._keycode = keycode;
+  event._down = (down != JNI_FALSE);
+  android_queue_ime_event(event);
+}

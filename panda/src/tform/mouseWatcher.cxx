@@ -67,6 +67,7 @@ MouseWatcher(std::string name) :
   _preferred_region = nullptr;
   _preferred_button_down_region = nullptr;
   _button_down = false;
+  _touch_down_region = nullptr;
   _eh = nullptr;
   _display_region = nullptr;
   _button_down_display_region = nullptr;
@@ -135,6 +136,67 @@ get_over_region(const LPoint2 &pos) const {
   Regions regions;
   get_over_regions(regions, pos);
   return get_preferred_region(regions);
+}
+
+/**
+ * Presses the region at the indicated position with mouse1, on behalf of a
+ * touch pointer other than the one this MouseWatcher tracks (a second
+ * finger).  The region receives the press a mouse1 click there would give it,
+ * so a PGItem plays its sound, shows its depressed state and throws its
+ * events.  Returns true if there was a region to press.  Pair each call with
+ * touch_release().
+ */
+bool MouseWatcher::
+touch_press(const LPoint2 &pos) {
+  LightMutexHolder holder(_lock);
+
+  Regions regions;
+  get_over_regions(regions, pos);
+  _touch_down_region = get_preferred_region(regions);
+  if (_touch_down_region == nullptr) {
+    return false;
+  }
+
+  MouseWatcherParameter param;
+  param.set_button(MouseButton::one());
+  param.set_modifier_buttons(_mods);
+  param.set_mouse(pos);
+  _touch_down_region->press(param);
+  throw_event_pattern(_button_down_pattern, _touch_down_region, MouseButton::one());
+  return true;
+}
+
+/**
+ * Releases the region pressed by the last touch_press().  The release counts
+ * as outside the region if the indicated position has left it, so a PGButton
+ * clicks only when the touch lifts inside.  Unless this MouseWatcher's own
+ * pointer is over the region, it is then exited, so it does not stay in its
+ * rollover state.
+ */
+void MouseWatcher::
+touch_release(const LPoint2 &pos) {
+  LightMutexHolder holder(_lock);
+
+  if (_touch_down_region == nullptr) {
+    return;
+  }
+  PT(MouseWatcherRegion) region = _touch_down_region;
+  _touch_down_region = nullptr;
+
+  Regions regions;
+  get_over_regions(regions, pos);
+
+  MouseWatcherParameter param;
+  param.set_button(MouseButton::one());
+  param.set_modifier_buttons(_mods);
+  param.set_mouse(pos);
+  param.set_outside(get_preferred_region(regions) != region);
+  region->release(param);
+  throw_event_pattern(_button_up_pattern, region, MouseButton::one());
+
+  if (!has_region_in(_current_regions, region)) {
+    region->exit_region(param);
+  }
 }
 
 /**
