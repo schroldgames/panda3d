@@ -21,6 +21,8 @@
 #include "renderModeAttrib.h"
 #include "cullFaceAttrib.h"
 #include "depthOffsetAttrib.h"
+#include "cullBinAttrib.h"
+#include "cullBinManager.h"
 #include "cullHandler.h"
 #include "dcast.h"
 #include "geomNode.h"
@@ -218,6 +220,17 @@ do_traverse(CullTraverserData &data) {
       // If we *are* implementing decals with DepthOffsetAttribs, apply it
       // now, so that each child of this node gets offset by a tiny amount.
       data._state = data._state->compose(get_depth_offset_state());
+
+      // If decal-bin names a bin, draw the decals there, after the opaque
+      // geometry their base is drawn with and before anything transparent.
+      const RenderState *decal_bin_state = get_decal_bin_state();
+      if (decal_bin_state != nullptr) {
+        const CullBinAttrib *bin_attrib;
+        if (!data._state->get_attrib(bin_attrib) ||
+            bin_attrib->get_bin_name().empty()) {
+          data._state = data._state->compose(decal_bin_state);
+        }
+      }
 #ifndef NDEBUG
       // This is just a sanity check message.
       if (!node->is_geom_node()) {
@@ -564,6 +577,34 @@ get_bounds_inner_viz_state() {
       (ColorAttrib::make_flat(LColor(0.15f, 0.5f, 0.25f, 1.0f)),
        RenderModeAttrib::make(RenderModeAttrib::M_wireframe),
        CullFaceAttrib::make(CullFaceAttrib::M_cull_counter_clockwise));
+  }
+  return state;
+}
+
+/**
+ * Returns a RenderState that assigns the bin named by decal-bin, or nullptr if
+ * decal-bin is empty or names a bin that does not exist.
+ */
+const RenderState *CullTraverser::
+get_decal_bin_state() {
+  // Cached per bin name, like get_depth_offset_state(); recomputed only if
+  // decal-bin changes.
+  static std::string cached_name;
+  static CPT(RenderState) state = nullptr;
+
+  const std::string &name = decal_bin.get_value();
+  if (name != cached_name) {
+    cached_name = name;
+    state = nullptr;
+    if (!name.empty()) {
+      if (CullBinManager::get_global_ptr()->find_bin(name) != -1) {
+        state = RenderState::make(CullBinAttrib::make(name, 0));
+      } else {
+        pgraph_cat.warning()
+          << "decal-bin names cull bin \"" << name
+          << "\", which does not exist; decals use their own bins.\n";
+      }
+    }
   }
   return state;
 }

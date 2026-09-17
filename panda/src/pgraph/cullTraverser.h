@@ -121,6 +121,7 @@ private:
   static const RenderState *get_bounds_outer_viz_state();
   static const RenderState *get_bounds_inner_viz_state();
   static const RenderState *get_depth_offset_state();
+  static const RenderState *get_decal_bin_state();
 
   GraphicsStateGuardianBase *_gsg;
   Thread *_current_thread;

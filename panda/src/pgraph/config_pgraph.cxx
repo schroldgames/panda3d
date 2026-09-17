@@ -262,6 +262,18 @@ ConfigVariableBool depth_offset_decals
           "by which decals are implemented in Panda3D, and as such, this "
           "setting is ignored."));
 
+ConfigVariableString decal_bin
+("decal-bin", "",
+ PRC_DESC("If this names an existing cull bin, the children of a node with a "
+          "DecalEffect are drawn in that bin, unless they have already been "
+          "assigned a bin.  Panda3D draws decals with a depth offset, so a "
+          "decal with M_dual transparency is split between the opaque and "
+          "transparent bins, and its transparent half can be hidden by other "
+          "transparent geometry that sorts ahead of it and writes depth.  A "
+          "bin sorted between opaque and transparent restores the order of "
+          "the old multi-pass decal system, which drew each decal with its "
+          "base.  Leave empty to use the object's own bin."));
+
 ConfigVariableInt max_collect_vertices
 ("max-collect-vertices", 65534,
  PRC_DESC("Specifies the maximum number of vertices that are allowed to be "
