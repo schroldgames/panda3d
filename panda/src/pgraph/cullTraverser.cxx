@@ -583,27 +583,33 @@ get_bounds_inner_viz_state() {
 
 /**
  * Returns a RenderState that assigns the bin named by decal-bin, or nullptr if
- * decal-bin is empty or names a bin that does not exist.
+ * decal-bin is empty or names a bin that does not exist (yet).
  */
 const RenderState *CullTraverser::
 get_decal_bin_state() {
-  // Cached per bin name, like get_depth_offset_state(); recomputed only if
-  // decal-bin changes.
+  // Cached per bin name, like get_depth_offset_state().  A missing bin is not
+  // cached: the application may add it after the first frame is culled, and
+  // cull-bin lines in a Config.prc loaded after CullBinManager was created are
+  // never read.  Warn about a missing bin only once per name.
   static std::string cached_name;
   static CPT(RenderState) state = nullptr;
+  static bool warned = false;
 
   const std::string &name = decal_bin.get_value();
   if (name != cached_name) {
     cached_name = name;
     state = nullptr;
-    if (!name.empty()) {
-      if (CullBinManager::get_global_ptr()->find_bin(name) != -1) {
-        state = RenderState::make(CullBinAttrib::make(name, 0));
-      } else {
-        pgraph_cat.warning()
-          << "decal-bin names cull bin \"" << name
-          << "\", which does not exist; decals use their own bins.\n";
-      }
+    warned = false;
+  }
+  if (state == nullptr && !name.empty()) {
+    if (CullBinManager::get_global_ptr()->find_bin(name) != -1) {
+      state = RenderState::make(CullBinAttrib::make(name, 0));
+    } else if (!warned) {
+      warned = true;
+      pgraph_cat.warning()
+        << "decal-bin names cull bin \"" << name
+        << "\", which does not exist; decals use their own bins until it is "
+        << "added.\n";
     }
   }
   return state;
