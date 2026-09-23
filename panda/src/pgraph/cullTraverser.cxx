@@ -21,6 +21,7 @@
 #include "renderModeAttrib.h"
 #include "cullFaceAttrib.h"
 #include "depthOffsetAttrib.h"
+#include "depthWriteAttrib.h"
 #include "cullBinAttrib.h"
 #include "cullBinManager.h"
 #include "transparencyAttrib.h"
@@ -609,7 +610,14 @@ get_decal_bin_state() {
   }
   if (state == nullptr && !name.empty()) {
     if (CullBinManager::get_global_ptr()->find_bin(name) != -1) {
-      state = RenderState::make(CullBinAttrib::make(name, 0));
+      // Decals in the bin do not write depth, so the depth buffer keeps their
+      // base's depth, as the old multi-pass decal system left it.  Anything
+      // drawn later in front of the base, such as a shadow card laid just
+      // in front of a wall, then covers the decal as it covers the base,
+      // instead of losing to the decal's depth offset at a distance or to a
+      // decal that stands slightly proud of its base.
+      state = RenderState::make(CullBinAttrib::make(name, 0),
+                                DepthWriteAttrib::make(DepthWriteAttrib::M_off));
     } else if (!warned) {
       warned = true;
       pgraph_cat.warning()

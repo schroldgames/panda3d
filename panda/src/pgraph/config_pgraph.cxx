@@ -272,7 +272,10 @@ ConfigVariableString decal_bin
           "transparent geometry that sorts ahead of it and writes depth.  A "
           "bin sorted between opaque and transparent restores the order of "
           "the old multi-pass decal system, which drew each decal with its "
-          "base.  Leave empty to use the object's own bin."));
+          "base.  Decals in the bin do not write depth, so, as with the old "
+          "system, the depth buffer keeps their base's depth.  Only decals "
+          "whose base is drawn in a bin sorted before this one are moved.  "
+          "Leave empty to use the object's own bin."));
 
 ConfigVariableInt max_collect_vertices
 ("max-collect-vertices", 65534,
