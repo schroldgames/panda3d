@@ -52,6 +52,7 @@ extern EXPCL_PANDA_PGRAPH ConfigVariableBool uniquify_states;
 extern ALIGN_16BYTE EXPCL_PANDA_PGRAPH ConfigVariableBool uniquify_attribs;
 extern ConfigVariableBool retransform_sprites;
 extern ConfigVariableBool depth_offset_decals;
+extern ConfigVariableString decal_bin;
 extern ConfigVariableInt max_collect_vertices;
 extern ConfigVariableInt max_collect_indices;
 extern EXPCL_PANDA_PGRAPH ConfigVariableBool premunge_data;

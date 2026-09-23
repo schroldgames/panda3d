@@ -121,6 +121,10 @@ private:
   static const RenderState *get_bounds_outer_viz_state();
   static const RenderState *get_bounds_inner_viz_state();
   static const RenderState *get_depth_offset_state();
+  static const RenderState *get_decal_bin_state();
+  bool is_decal_base_drawn_before(PandaNode *node, const RenderState *net_state,
+                                  int decal_bin) const;
+  static int get_base_bin_index(const RenderState *state);
 
   GraphicsStateGuardianBase *_gsg;
   Thread *_current_thread;

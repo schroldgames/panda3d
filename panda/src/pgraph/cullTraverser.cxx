@@ -21,6 +21,10 @@
 #include "renderModeAttrib.h"
 #include "cullFaceAttrib.h"
 #include "depthOffsetAttrib.h"
+#include "depthWriteAttrib.h"
+#include "cullBinAttrib.h"
+#include "cullBinManager.h"
+#include "transparencyAttrib.h"
 #include "cullHandler.h"
 #include "dcast.h"
 #include "geomNode.h"
@@ -218,6 +222,22 @@ do_traverse(CullTraverserData &data) {
       // If we *are* implementing decals with DepthOffsetAttribs, apply it
       // now, so that each child of this node gets offset by a tiny amount.
       data._state = data._state->compose(get_depth_offset_state());
+
+      // If decal-bin names a bin, draw the decals there, after the opaque
+      // geometry their base is drawn with and before anything transparent.
+      // Only a base drawn before that bin qualifies: a base drawn later, such
+      // as a translucent one in the transparent bin, would be drawn over its
+      // own decals.
+      const RenderState *decal_bin_state = get_decal_bin_state();
+      if (decal_bin_state != nullptr &&
+          is_decal_base_drawn_before(node, data._state,
+                                     decal_bin_state->get_bin_index())) {
+        const CullBinAttrib *bin_attrib;
+        if (!data._state->get_attrib(bin_attrib) ||
+            bin_attrib->get_bin_name().empty()) {
+          data._state = data._state->compose(decal_bin_state);
+        }
+      }
 #ifndef NDEBUG
       // This is just a sanity check message.
       if (!node->is_geom_node()) {
@@ -566,6 +586,95 @@ get_bounds_inner_viz_state() {
        CullFaceAttrib::make(CullFaceAttrib::M_cull_counter_clockwise));
   }
   return state;
+}
+
+/**
+ * Returns a RenderState that assigns the bin named by decal-bin, or nullptr if
+ * decal-bin is empty or names a bin that does not exist (yet).
+ */
+const RenderState *CullTraverser::
+get_decal_bin_state() {
+  // Cached per bin name, like get_depth_offset_state().  A missing bin is not
+  // cached: the application may add it after the first frame is culled, and
+  // cull-bin lines in a Config.prc loaded after CullBinManager was created are
+  // never read.  Warn about a missing bin only once per name.
+  static std::string cached_name;
+  static CPT(RenderState) state = nullptr;
+  static bool warned = false;
+
+  const std::string &name = decal_bin.get_value();
+  if (name != cached_name) {
+    cached_name = name;
+    state = nullptr;
+    warned = false;
+  }
+  if (state == nullptr && !name.empty()) {
+    if (CullBinManager::get_global_ptr()->find_bin(name) != -1) {
+      // Decals in the bin do not write depth, so the depth buffer keeps their
+      // base's depth, as the old multi-pass decal system left it.  Anything
+      // drawn later in front of the base, such as a shadow card laid just
+      // in front of a wall, then covers the decal as it covers the base,
+      // instead of losing to the decal's depth offset at a distance or to a
+      // decal that stands slightly proud of its base.
+      state = RenderState::make(CullBinAttrib::make(name, 0),
+                                DepthWriteAttrib::make(DepthWriteAttrib::M_off));
+    } else if (!warned) {
+      warned = true;
+      pgraph_cat.warning()
+        << "decal-bin names cull bin \"" << name
+        << "\", which does not exist; decals use their own bins until it is "
+        << "added.\n";
+    }
+  }
+  return state;
+}
+
+/**
+ * Returns true if every Geom of the indicated decal base, drawn with the
+ * indicated net state, is drawn in a bin that sorts before the indicated
+ * decal bin, so that its decals are drawn after it.  A translucent base, such
+ * as a 3-D nametag card, is drawn in the transparent bin instead, and its
+ * transparency may be on the node or pushed down onto each Geom's own state.
+ */
+bool CullTraverser::
+is_decal_base_drawn_before(PandaNode *node, const RenderState *net_state,
+                           int decal_bin) const {
+  CullBinManager *bin_manager = CullBinManager::get_global_ptr();
+  int decal_sort = bin_manager->get_bin_sort(decal_bin);
+
+  if (!node->is_geom_node()) {
+    return bin_manager->get_bin_sort(get_base_bin_index(net_state)) < decal_sort;
+  }
+  GeomNode::Geoms geoms = ((GeomNode *)node)->get_geoms(_current_thread);
+  int num_geoms = geoms.get_num_geoms();
+  for (int i = 0; i < num_geoms; ++i) {
+    CPT(RenderState) state = net_state->compose(geoms.get_geom_state(i));
+    if (bin_manager->get_bin_sort(get_base_bin_index(state)) >= decal_sort) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Returns the bin in which an object with the indicated state is first drawn.
+ * This is RenderState::get_bin_index(), except that M_dual is drawn first in
+ * the opaque bin, as CullResult::add_object() splits it.
+ */
+int CullTraverser::
+get_base_bin_index(const RenderState *state) {
+  const CullBinAttrib *bin_attrib;
+  const TransparencyAttrib *transparency;
+  if (m_dual &&
+      (!state->get_attrib(bin_attrib) || bin_attrib->get_bin_name().empty()) &&
+      state->get_attrib(transparency) &&
+      transparency->get_mode() == TransparencyAttrib::M_dual) {
+    int opaque_bin = CullBinManager::get_global_ptr()->find_bin("opaque");
+    if (opaque_bin != -1) {
+      return opaque_bin;
+    }
+  }
+  return state->get_bin_index();
 }
 
 /**
